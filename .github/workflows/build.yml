@@ -55,8 +55,8 @@ jobs:
                   applicationId "com.example.simplecamera"
                   minSdk 24
                   targetSdk 34
-                  versionCode 2
-                  versionName "2.0"
+                  versionCode 3
+                  versionName "3.0"
               }
 
               compileOptions {
@@ -84,6 +84,7 @@ jobs:
               implementation "androidx.camera:camera-lifecycle:$camerax"
               implementation "androidx.camera:camera-video:$camerax"
               implementation "androidx.camera:camera-view:$camerax"
+              implementation "androidx.camera:camera-extensions:$camerax"
           }
           EOF_FILE
           cat > app/src/main/AndroidManifest.xml << 'EOF_FILE'
@@ -105,7 +106,7 @@ jobs:
 
               <application
                   android:allowBackup="true"
-                  android:icon="@android:drawable/ic_menu_camera"
+                  android:icon="@drawable/ic_launcher"
                   android:label="Камера"
                   android:theme="@style/Theme.AppCompat.NoActionBar">
 
@@ -140,6 +141,17 @@ jobs:
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintTop_toTopOf="parent" />
 
+              <View
+                  android:id="@+id/screenFlash"
+                  android:layout_width="0dp"
+                  android:layout_height="0dp"
+                  android:background="#FFFFFF"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
               <com.example.simplecamera.GridOverlayView
                   android:id="@+id/gridOverlay"
                   android:layout_width="0dp"
@@ -155,6 +167,14 @@ jobs:
                   android:layout_width="72dp"
                   android:layout_height="72dp"
                   android:background="@drawable/focus_ring"
+                  android:visibility="gone"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+              <com.example.simplecamera.ExposureSliderView
+                  android:id="@+id/exposureSlider"
+                  android:layout_width="28dp"
+                  android:layout_height="120dp"
                   android:visibility="gone"
                   app:layout_constraintStart_toStartOf="parent"
                   app:layout_constraintTop_toTopOf="parent" />
@@ -202,10 +222,47 @@ jobs:
                       android:layout_weight="1"
                       android:background="?android:attr/selectableItemBackgroundBorderless"
                       android:gravity="center"
-                      android:text="FULL"
+                      android:text="4:3"
                       android:textColor="#FFFFFF"
                       android:textSize="14sp"
                       android:textStyle="bold" />
+
+                  <TextView
+                      android:id="@+id/tvFps"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:gravity="center"
+                      android:text="30fps"
+                      android:textColor="#FFFFFF"
+                      android:textSize="13sp"
+                      android:textStyle="bold"
+                      android:visibility="gone" />
+
+                  <TextView
+                      android:id="@+id/tvExt"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:gravity="center"
+                      android:text="HDR"
+                      android:textColor="#FFFFFF"
+                      android:textSize="14sp"
+                      android:textStyle="bold"
+                      android:visibility="gone" />
+
+                  <ImageButton
+                      android:id="@+id/btnMirror"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:contentDescription="Зеркало"
+                      android:scaleType="centerInside"
+                      android:src="@drawable/ic_mirror"
+                      android:visibility="gone" />
 
                   <ImageButton
                       android:id="@+id/btnGrid"
@@ -287,19 +344,14 @@ jobs:
                   app:layout_constraintEnd_toEndOf="parent"
                   app:layout_constraintStart_toStartOf="parent">
 
-                  <TextView
-                      android:id="@+id/tvZoom"
+                  <LinearLayout
+                      android:id="@+id/zoomRow"
                       android:layout_width="wrap_content"
                       android:layout_height="wrap_content"
                       android:background="@drawable/pill_bg"
-                      android:paddingStart="16dp"
-                      android:paddingTop="6dp"
-                      android:paddingEnd="16dp"
-                      android:paddingBottom="6dp"
-                      android:text="1x"
-                      android:textColor="#FFFFFF"
-                      android:textSize="14sp"
-                      android:textStyle="bold" />
+                      android:gravity="center_vertical"
+                      android:orientation="horizontal"
+                      android:padding="4dp" />
 
                   <LinearLayout
                       android:layout_width="wrap_content"
@@ -386,7 +438,7 @@ jobs:
                               android:layout_gravity="center"
                               android:background="@android:color/transparent"
                               android:contentDescription="Переключить камеру"
-                              android:src="@android:drawable/ic_menu_rotate"
+                              android:src="@drawable/ic_flip_camera"
                               android:tint="#FFFFFF" />
 
                       </FrameLayout>
@@ -497,6 +549,14 @@ jobs:
               <corners android:radius="20dp" />
           </shape>
           EOF_FILE
+          cat > app/src/main/res/drawable/chip_sel_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#40FFFFFF" />
+              <corners android:radius="16dp" />
+          </shape>
+          EOF_FILE
           cat > app/src/main/res/drawable/rec_bg.xml << 'EOF_FILE'
           <?xml version="1.0" encoding="utf-8"?>
           <shape xmlns:android="http://schemas.android.com/apk/res/android"
@@ -524,6 +584,71 @@ jobs:
                   android:width="2dp"
                   android:color="#FFFFFF" />
           </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_launcher.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="96dp"
+              android:height="96dp"
+              android:viewportWidth="96"
+              android:viewportHeight="96">
+              <path
+                  android:fillColor="#1E1E1E"
+                  android:pathData="M20,0h56a20,20 0 0 1 20,20v56a20,20 0 0 1 -20,20h-56a20,20 0 0 1 -20,-20v-56a20,20 0 0 1 20,-20z" />
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M22,48a26,26 0 1,0 52,0a26,26 0 1,0 -52,0" />
+              <path
+                  android:fillColor="#1E1E1E"
+                  android:pathData="M30,48a18,18 0 1,0 36,0a18,18 0 1,0 -36,0" />
+              <path
+                  android:fillColor="#FFD400"
+                  android:pathData="M40,48a8,8 0 1,0 16,0a8,8 0 1,0 -16,0" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_flip_camera.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round"
+                  android:pathData="M20,12a8,8 0 1,1 -2.34,-5.66 M20,4v4h-4" />
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="1.6"
+                  android:strokeLineJoin="round"
+                  android:pathData="M9,10h6v4h-6z" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_mirror.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:pathData="M12,3v3 M12,9v3 M12,15v3 M12,20v1" />
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="1.8"
+                  android:strokeLineJoin="round"
+                  android:pathData="M9,7L3,17h6z" />
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="1.8"
+                  android:strokeLineJoin="round"
+                  android:pathData="M15,7l6,10h-6z" />
+          </vector>
           EOF_FILE
           cat > app/src/main/res/drawable/ic_flash_on.xml << 'EOF_FILE'
           <?xml version="1.0" encoding="utf-8"?>
@@ -664,46 +789,132 @@ jobs:
               }
           }
           EOF_FILE
+          cat > app/src/main/java/com/example/simplecamera/ExposureSliderView.kt << 'EOF_FILE'
+          package com.example.simplecamera
+
+          import android.content.Context
+          import android.graphics.Canvas
+          import android.graphics.Color
+          import android.graphics.Paint
+          import android.util.AttributeSet
+          import android.view.View
+
+          /** Вертикальный ползунок яркости (солнышко) рядом с кольцом фокуса. */
+          class ExposureSliderView @JvmOverloads constructor(
+              context: Context,
+              attrs: AttributeSet? = null
+          ) : View(context, attrs) {
+
+              /** 0 = темнее всего, 1 = ярче всего. */
+              var fraction: Float = 0.5f
+                  set(value) {
+                      field = value.coerceIn(0f, 1f)
+                      invalidate()
+                  }
+
+              private val d = resources.displayMetrics.density
+
+              private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  color = Color.argb(200, 255, 212, 0)
+                  strokeWidth = 1.5f * d
+                  strokeCap = Paint.Cap.ROUND
+              }
+
+              private val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  color = Color.rgb(255, 212, 0)
+                  strokeWidth = 1.5f * d
+                  strokeCap = Paint.Cap.ROUND
+              }
+
+              override fun onDraw(canvas: Canvas) {
+                  super.onDraw(canvas)
+                  val cx = width / 2f
+                  val r = 8f * d
+                  val top = r + 2f * d
+                  val bottom = height - r - 2f * d
+                  canvas.drawLine(cx, top, cx, bottom, linePaint)
+
+                  val cy = bottom - (bottom - top) * fraction
+                  canvas.drawCircle(cx, cy, r * 0.5f, sunPaint)
+                  for (i in 0 until 8) {
+                      val a = Math.PI / 4.0 * i
+                      val c = Math.cos(a).toFloat()
+                      val s = Math.sin(a).toFloat()
+                      canvas.drawLine(
+                          cx + c * r * 0.75f, cy + s * r * 0.75f,
+                          cx + c * r * 1.0f, cy + s * r * 1.0f,
+                          sunPaint
+                      )
+                  }
+              }
+          }
+          EOF_FILE
           cat > app/src/main/java/com/example/simplecamera/MainActivity.kt << 'EOF_FILE'
           package com.example.simplecamera
 
           import android.Manifest
           import android.annotation.SuppressLint
+          import android.content.ClipData
+          import android.content.ClipboardManager
           import android.content.ContentUris
           import android.content.ContentValues
+          import android.content.Context
           import android.content.Intent
           import android.content.pm.PackageManager
           import android.graphics.Bitmap
           import android.graphics.BitmapFactory
           import android.graphics.Color
           import android.graphics.Matrix
+          import android.graphics.Typeface
+          import android.hardware.camera2.CameraCharacteristics
+          import android.hardware.camera2.CameraManager
+          import android.hardware.camera2.CaptureRequest
           import android.media.ExifInterface
           import android.media.MediaMetadataRetriever
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
           import android.os.CountDownTimer
+          import android.os.Handler
+          import android.os.Looper
           import android.os.SystemClock
           import android.provider.MediaStore
+          import android.util.Range
           import android.view.GestureDetector
+          import android.view.Gravity
           import android.view.HapticFeedbackConstants
+          import android.view.KeyEvent
           import android.view.MotionEvent
+          import android.view.OrientationEventListener
           import android.view.ScaleGestureDetector
+          import android.view.Surface
           import android.view.View
           import android.view.ViewOutlineProvider
           import android.view.WindowManager
+          import android.widget.LinearLayout
+          import android.widget.TextView
           import android.widget.Toast
           import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.appcompat.app.AlertDialog
           import androidx.appcompat.app.AppCompatActivity
-          import androidx.camera.core.AspectRatio
+          import androidx.camera.camera2.interop.Camera2CameraInfo
+          import androidx.camera.camera2.interop.Camera2Interop
           import androidx.camera.core.Camera
+          import androidx.camera.core.CameraFilter
+          import androidx.camera.core.CameraInfo
           import androidx.camera.core.CameraSelector
           import androidx.camera.core.FocusMeteringAction
           import androidx.camera.core.ImageCapture
           import androidx.camera.core.ImageCaptureException
+          import androidx.camera.core.MirrorMode
           import androidx.camera.core.Preview
           import androidx.camera.core.UseCaseGroup
           import androidx.camera.core.ZoomState
+          import androidx.camera.core.resolutionselector.AspectRatioStrategy
+          import androidx.camera.core.resolutionselector.ResolutionSelector
+          import androidx.camera.core.resolutionselector.ResolutionStrategy
+          import androidx.camera.extensions.ExtensionMode
+          import androidx.camera.extensions.ExtensionsManager
           import androidx.camera.lifecycle.ProcessCameraProvider
           import androidx.camera.video.FallbackStrategy
           import androidx.camera.video.MediaStoreOutputOptions
@@ -739,39 +950,107 @@ jobs:
                   private const val RATIO_FULL = 3
               }
 
+              /** Задняя камера, найденная через Camera2 (id, эквивалентное фокусное, мегапиксели). */
+              private data class Lens(
+                  val id: String,
+                  val equiv: Float,
+                  val mp: Float,
+                  var factor: Float = 1f
+              )
+
+              /** Кнопка зума: какой «эффективный» зум показывает, на какой объектив переключает и какой zoomRatio ставит. */
+              private data class ZoomChip(val effective: Float, val lens: String?, val zoom: Float)
+
               private lateinit var binding: ActivityMainBinding
               private lateinit var scaleDetector: ScaleGestureDetector
               private lateinit var tapDetector: GestureDetector
 
               private var cameraProvider: ProcessCameraProvider? = null
+              private var extManager: ExtensionsManager? = null
               private var camera: Camera? = null
               private var imageCapture: ImageCapture? = null
               private var videoCapture: VideoCapture<Recorder>? = null
               private var recording: Recording? = null
               private var lensFacing = CameraSelector.LENS_FACING_BACK
 
+              // настройки (сохраняются)
               private var videoMode = false
               private var flash = FLASH_OFF
               private var timerSeconds = 0
-              private var ratioIndex = RATIO_FULL
+              private var ratioIndex = 0
               private var gridOn = false
+              private var mirrorSelfie = true
+              private var fps60 = false
+              private var extMode = ExtensionMode.NONE
+              private var videoQuality: Quality = Quality.FHD
 
+              // состояние
               private var exposureIndex = 0
               private var exposureAccum = 0f
               private var lastFocusTime = 0L
+              private var aeLocked = false
               private var bindRetries = 0
               private var audioAsked = false
               private var countDown: CountDownTimer? = null
+              private var shotRotation = Surface.ROTATION_0
+              private var paused = false
+              private var recSeconds = 0L
 
               private var lastUri: Uri? = null
               private var lastIsVideo = false
 
+              // объективы
+              private var mainBackId: String? = null
+              private var ultraLens: Lens? = null
+              private var teleLens: Lens? = null
+              private var activeBackId: String? = null
+              private var pendingZoom: Float? = null
+              private var mainZoomMin = 1f
+              private var mainZoomMax = 1f
+              private val zoomChips = mutableListOf<ZoomChip>()
+
+              // расширения и видео
+              private var extAvailable: List<Int> = emptyList()
+              private var fps60Supported = false
+
               private var zoomLive: LiveData<ZoomState>? = null
-              private val zoomObserver = Observer<ZoomState> { updateZoomChip(it.zoomRatio) }
+              private val zoomObserver = Observer<ZoomState> { updateZoomUi(lensBase() * it.zoomRatio) }
+
+              private val uiHandler = Handler(Looper.getMainLooper())
+              private val hideFocusUi = Runnable {
+                  binding.focusRing.animate().setStartDelay(0).alpha(0f).setDuration(300)
+                      .withEndAction { binding.focusRing.visibility = View.GONE }
+                      .start()
+                  binding.exposureSlider.animate().setStartDelay(0).alpha(0f).setDuration(300)
+                      .withEndAction { binding.exposureSlider.visibility = View.GONE }
+                      .start()
+              }
+
+              private val prefs by lazy { getSharedPreferences("camera", Context.MODE_PRIVATE) }
+
+              private val orientationListener by lazy {
+                  object : OrientationEventListener(this@MainActivity) {
+                      override fun onOrientationChanged(orientation: Int) {
+                          if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
+                          val rot = when (orientation) {
+                              in 45 until 135 -> Surface.ROTATION_270
+                              in 135 until 225 -> Surface.ROTATION_180
+                              in 225 until 315 -> Surface.ROTATION_90
+                              else -> Surface.ROTATION_0
+                          }
+                          if (rot != shotRotation) {
+                              shotRotation = rot
+                              imageCapture?.targetRotation = rot
+                              videoCapture?.targetRotation = rot
+                          }
+                      }
+                  }
+              }
 
               private val yellow = Color.rgb(255, 212, 0)
               private val dimWhite = Color.argb(153, 255, 255, 255)
               private val ratioLabels = arrayOf("4:3", "16:9", "1:1", "FULL")
+              private val qualityAll = listOf(Quality.UHD, Quality.FHD, Quality.HD)
 
               private val neededPermissions: Array<String> =
                   if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
@@ -813,6 +1092,8 @@ jobs:
                   setContentView(binding.root)
                   setupInsets()
 
+                  loadSettings()
+
                   binding.viewFinder.scaleType = PreviewView.ScaleType.FILL_CENTER
                   binding.ivThumb.outlineProvider = ViewOutlineProvider.BACKGROUND
                   binding.ivThumb.clipToOutline = true
@@ -820,9 +1101,11 @@ jobs:
                   setupGestures()
                   setupButtons()
                   applyRatio(false)
+                  applySettingsToUi()
                   updateModeUi()
                   updateFlashUi()
-                  updateZoomChip(1f)
+                  updateTopBarUi()
+                  updateZoomUi(1f)
                   loadLastMedia()
 
                   if (allPermissionsGranted()) {
@@ -832,9 +1115,68 @@ jobs:
                   }
               }
 
+              override fun onResume() {
+                  super.onResume()
+                  if (orientationListener.canDetectOrientation()) orientationListener.enable()
+              }
+
+              override fun onPause() {
+                  super.onPause()
+                  orientationListener.disable()
+              }
+
               override fun onStop() {
                   super.onStop()
                   cancelCountdown()
+                  showScreenFlash(false)
+              }
+
+              /** Кнопки громкости работают как спуск затвора. */
+              override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+                  if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                      if ((event?.repeatCount ?: 0) == 0) onShutter()
+                      return true
+                  }
+                  return super.onKeyDown(keyCode, event)
+              }
+
+              override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+                  if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                      return true
+                  }
+                  return super.onKeyUp(keyCode, event)
+              }
+
+              // ---------------------------------------------------------------- settings
+
+              private fun loadSettings() {
+                  flash = prefs.getInt("flash", FLASH_OFF).coerceIn(0, 2)
+                  timerSeconds = prefs.getInt("timer", 0)
+                  ratioIndex = prefs.getInt("ratio", 0).coerceIn(0, 3)
+                  gridOn = prefs.getBoolean("grid", false)
+                  mirrorSelfie = prefs.getBoolean("mirror", true)
+                  fps60 = prefs.getBoolean("fps60", false)
+                  extMode = prefs.getInt("ext", ExtensionMode.NONE)
+                  videoQuality = qualityAll.getOrElse(prefs.getInt("vq", 1)) { Quality.FHD }
+              }
+
+              private fun saveSettings() {
+                  prefs.edit()
+                      .putInt("flash", if (flash == FLASH_TORCH) FLASH_OFF else flash)
+                      .putInt("timer", timerSeconds)
+                      .putInt("ratio", ratioIndex)
+                      .putBoolean("grid", gridOn)
+                      .putBoolean("mirror", mirrorSelfie)
+                      .putBoolean("fps60", fps60)
+                      .putInt("ext", extMode)
+                      .putInt("vq", qualityAll.indexOf(videoQuality).coerceAtLeast(1))
+                      .apply()
+              }
+
+              private fun applySettingsToUi() {
+                  binding.gridOverlay.visibility = if (gridOn) View.VISIBLE else View.GONE
+                  binding.btnGrid.setColorFilter(if (gridOn) yellow else Color.WHITE)
+                  binding.btnTimer.setColorFilter(if (timerSeconds > 0) yellow else Color.WHITE)
               }
 
               // ---------------------------------------------------------------- window / UI setup
@@ -871,12 +1213,18 @@ jobs:
 
               private fun setupButtons() {
                   binding.btnCapture.setOnClickListener { onShutter() }
-                  binding.btnSwitchCamera.setOnClickListener { switchCamera() }
+                  binding.btnSwitchCamera.setOnClickListener {
+                      if (recording != null) togglePause() else switchCamera()
+                  }
                   binding.btnFlash.setOnClickListener { cycleFlash() }
                   binding.btnTimer.setOnClickListener { cycleTimer() }
-                  binding.tvRatio.setOnClickListener { cycleRatio() }
+                  binding.tvRatio.setOnClickListener {
+                      if (videoMode) cycleVideoQuality() else cycleRatio()
+                  }
+                  binding.tvFps.setOnClickListener { cycleFps() }
+                  binding.tvExt.setOnClickListener { cycleExt() }
+                  binding.btnMirror.setOnClickListener { toggleMirror() }
                   binding.btnGrid.setOnClickListener { toggleGrid() }
-                  binding.tvZoom.setOnClickListener { cycleZoom() }
                   binding.tvModePhoto.setOnClickListener { setMode(false) }
                   binding.tvModeVideo.setOnClickListener { setMode(true) }
                   binding.ivThumb.setOnClickListener { openLastMedia() }
@@ -905,8 +1253,14 @@ jobs:
 
                           override fun onSingleTapUp(e: MotionEvent): Boolean {
                               if (scaleDetector.isInProgress) return false
-                              focusAt(e.x, e.y)
+                              focusAt(e.x, e.y, false)
                               return true
+                          }
+
+                          override fun onLongPress(e: MotionEvent) {
+                              if (scaleDetector.isInProgress) return
+                              binding.viewFinder.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                              focusAt(e.x, e.y, true)
                           }
 
                           override fun onScroll(
@@ -959,17 +1313,77 @@ jobs:
                   ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
                       PackageManager.PERMISSION_GRANTED
 
-              // ---------------------------------------------------------------- camera binding
+              // ---------------------------------------------------------------- camera selection / lenses
 
-              private fun selectorFor(facing: Int): CameraSelector =
-                  CameraSelector.Builder().requireLensFacing(facing).build()
-
-              private fun hasLens(provider: ProcessCameraProvider, facing: Int): Boolean =
+              private fun sameId(info: CameraInfo, id: String): Boolean =
                   try {
-                      provider.hasCamera(selectorFor(facing))
+                      Camera2CameraInfo.from(info).cameraId == id
                   } catch (e: Exception) {
                       false
                   }
+
+              /** Селектор по стороне камеры; для задней можно выбрать конкретный объектив по Camera2-id. */
+              private fun baseSelector(facing: Int, lensId: String? = null): CameraSelector {
+                  val b = CameraSelector.Builder().requireLensFacing(facing)
+                  if (lensId != null && facing == CameraSelector.LENS_FACING_BACK) {
+                      b.addCameraFilter(CameraFilter { infos -> infos.filter { sameId(it, lensId) } })
+                  }
+                  return b.build()
+              }
+
+              private fun hasLens(provider: ProcessCameraProvider, facing: Int): Boolean =
+                  try {
+                      provider.hasCamera(baseSelector(facing))
+                  } catch (e: Exception) {
+                      false
+                  }
+
+              /** Ищем у задней камеры ультраширик и телевик по эквивалентному фокусному. */
+              private fun scanLenses(provider: ProcessCameraProvider) {
+                  ultraLens = null
+                  teleLens = null
+                  mainBackId = null
+                  try {
+                      val back = baseSelector(CameraSelector.LENS_FACING_BACK)
+                          .filter(provider.availableCameraInfos)
+                      val lenses = back.mapNotNull { info ->
+                          try {
+                              val c2 = Camera2CameraInfo.from(info)
+                              val focal = c2.getCameraCharacteristic(
+                                  CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS
+                              )?.minOrNull() ?: 0f
+                              val size = c2.getCameraCharacteristic(
+                                  CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE
+                              )
+                              val pix = c2.getCameraCharacteristic(
+                                  CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE
+                              )
+                              if (size == null || pix == null || focal <= 0f) {
+                                  null
+                              } else {
+                                  val diag = Math.sqrt(
+                                      (size.width * size.width + size.height * size.height).toDouble()
+                                  ).toFloat()
+                                  Lens(c2.cameraId, focal * 43.27f / diag, pix.width * pix.height / 1e6f)
+                              }
+                          } catch (e: Exception) {
+                              null
+                          }
+                      }
+                      val usable = lenses.filter { it.mp >= 4f }
+                      val main = usable.firstOrNull() ?: return
+                      mainBackId = main.id
+                      val others = usable.filter { it.id != main.id }
+                      others.forEach { it.factor = it.equiv / main.equiv }
+
+                      ultraLens = others.filter { it.factor < 0.85f }.minByOrNull { it.factor }
+                          ?.also { it.factor = Math.round(it.factor * 10f) / 10f }
+                      teleLens = others.filter { it.factor > 1.6f }.minByOrNull { it.factor }
+                          ?.also { it.factor = Math.round(it.factor * 2f) / 2f }
+                  } catch (e: Exception) {
+                      // диагностика всё равно покажет, что есть в системе
+                  }
+              }
 
               private fun startCamera() {
                   val future = ProcessCameraProvider.getInstance(this)
@@ -979,29 +1393,138 @@ jobs:
                       if (!hasLens(provider, lensFacing)) {
                           lensFacing = CameraSelector.LENS_FACING_FRONT
                       }
-                      bindCamera()
+                      scanLenses(provider)
+
+                      val extFuture = try {
+                          ExtensionsManager.getInstanceAsync(this, provider)
+                      } catch (e: Exception) {
+                          null
+                      }
+                      if (extFuture == null) {
+                          bindCamera()
+                      } else {
+                          extFuture.addListener({
+                              extManager = try {
+                                  extFuture.get()
+                              } catch (e: Exception) {
+                                  null
+                              }
+                              bindCamera()
+                          }, ContextCompat.getMainExecutor(this))
+                      }
                   }, ContextCompat.getMainExecutor(this))
               }
 
-              private fun bindCamera() {
+              private fun fpsRange60(info: CameraInfo?): Range<Int>? =
+                  try {
+                      if (info == null) {
+                          null
+                      } else {
+                          Camera2CameraInfo.from(info)
+                              .getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+                              ?.filter { it.upper == 60 }
+                              ?.maxByOrNull { it.lower }
+                      }
+                  } catch (e: Exception) {
+                      null
+                  }
+
+              private fun stabilizationOk(info: CameraInfo?): Boolean =
+                  try {
+                      if (info == null) {
+                          false
+                      } else {
+                          Camera2CameraInfo.from(info)
+                              .getCameraCharacteristic(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES)
+                              ?.contains(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON) == true
+                      }
+                  } catch (e: Exception) {
+                      false
+                  }
+
+              /** Приводим «эффективный» режим кадра: в видео только 16:9 или FULL. */
+              private fun effRatioIndex(): Int =
+                  if (videoMode) (if (ratioIndex == RATIO_FULL) RATIO_FULL else 1) else ratioIndex
+
+              private fun bindCamera(allowExt: Boolean = true) {
                   val provider = cameraProvider ?: return
 
                   // ViewPort нужен, чтобы фото/видео совпадали с тем, что видно на экране.
                   val viewPort = binding.viewFinder.viewPort
                   if (viewPort == null && bindRetries < 10) {
                       bindRetries++
-                      binding.viewFinder.postDelayed({ bindCamera() }, 50)
+                      binding.viewFinder.postDelayed({ bindCamera(allowExt) }, 50)
                       return
                   }
                   bindRetries = 0
 
-                  val ratio = if (videoMode || ratioIndex == 1 || ratioIndex == RATIO_FULL) {
-                      AspectRatio.RATIO_16_9
-                  } else {
-                      AspectRatio.RATIO_4_3
+                  val front = lensFacing == CameraSelector.LENS_FACING_FRONT
+                  if (front) activeBackId = null
+                  val base = baseSelector(lensFacing, activeBackId)
+                  val info: CameraInfo? = try {
+                      base.filter(provider.availableCameraInfos).firstOrNull()
+                  } catch (e: Exception) {
+                      null
                   }
 
-                  val preview = Preview.Builder().setTargetAspectRatio(ratio).build()
+                  // HDR / ночной режим через расширения (если телефон их отдаёт)
+                  val mgr = extManager
+                  extAvailable = if (!videoMode && mgr != null) {
+                      listOf(ExtensionMode.HDR, ExtensionMode.NIGHT).filter {
+                          try {
+                              mgr.isExtensionAvailable(base, it)
+                          } catch (e: Exception) {
+                              false
+                          }
+                      }
+                  } else {
+                      emptyList()
+                  }
+                  val effExt = if (allowExt && extMode in extAvailable) extMode else ExtensionMode.NONE
+                  val selector = try {
+                      if (effExt != ExtensionMode.NONE) {
+                          mgr?.getExtensionEnabledCameraSelector(base, effExt) ?: base
+                      } else {
+                          base
+                      }
+                  } catch (e: Exception) {
+                      base
+                  }
+                  updateExtUi(effExt)
+
+                  val ri = effRatioIndex()
+                  val strategy = if (ri == 1 || ri == RATIO_FULL) {
+                      AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY
+                  } else {
+                      AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
+                  }
+
+                  val previewBuilder = Preview.Builder()
+                      .setResolutionSelector(
+                          ResolutionSelector.Builder().setAspectRatioStrategy(strategy).build()
+                      )
+
+                  fps60Supported = fpsRange60(info) != null
+                  if (videoMode) {
+                      // 60 fps и стабилизация через Camera2
+                      try {
+                          val ext = Camera2Interop.Extender(previewBuilder)
+                          val range = if (fps60) fpsRange60(info) else null
+                          if (range != null) {
+                              ext.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range)
+                          }
+                          if (stabilizationOk(info)) {
+                              ext.setCaptureRequestOption(
+                                  CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                                  CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON
+                              )
+                          }
+                      } catch (e: Exception) {
+                          // без интеропа просто пишем как обычно
+                      }
+                  }
+
+                  val preview = previewBuilder.build()
                   preview.setSurfaceProvider(binding.viewFinder.surfaceProvider)
 
                   val group = UseCaseGroup.Builder().addUseCase(preview)
@@ -1013,38 +1536,85 @@ jobs:
                       val recorder = Recorder.Builder()
                           .setQualitySelector(
                               QualitySelector.from(
-                                  Quality.FHD,
-                                  FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD)
+                                  videoQuality,
+                                  FallbackStrategy.lowerQualityOrHigherThan(videoQuality)
                               )
                           )
                           .build()
-                      val vc = VideoCapture.withOutput(recorder)
+                      val vc = VideoCapture.Builder(recorder)
+                          .setMirrorMode(
+                              if (front && mirrorSelfie) MirrorMode.MIRROR_MODE_ON_FRONT_ONLY
+                              else MirrorMode.MIRROR_MODE_OFF
+                          )
+                          .setTargetRotation(shotRotation)
+                          .build()
                       videoCapture = vc
                       group.addUseCase(vc)
                   } else {
                       val capture = ImageCapture.Builder()
-                          .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                          .setTargetAspectRatio(ratio)
+                          .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                          .setResolutionSelector(
+                              ResolutionSelector.Builder()
+                                  .setAspectRatioStrategy(strategy)
+                                  .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                                  .build()
+                          )
+                          .setTargetRotation(shotRotation)
                           .build()
                       imageCapture = capture
                       group.addUseCase(capture)
                   }
 
+                  // если зеркало выключено, превью переворачиваем, чтобы оно показывало то, что сохранится
+                  binding.viewFinder.scaleX = if (front && !mirrorSelfie) -1f else 1f
+
                   try {
                       provider.unbindAll()
-                      val cam = provider.bindToLifecycle(this, selectorFor(lensFacing), group.build())
+                      val cam = provider.bindToLifecycle(this, selector, group.build())
                       camera = cam
                       exposureIndex = 0
                       exposureAccum = 0f
+                      aeLocked = false
+                      uiHandler.removeCallbacks(hideFocusUi)
+                      binding.focusRing.visibility = View.GONE
+                      binding.exposureSlider.visibility = View.GONE
+
+                      if (activeBackId == null) {
+                          cam.cameraInfo.zoomState.value?.let {
+                              mainZoomMin = it.minZoomRatio
+                              mainZoomMax = it.maxZoomRatio
+                          }
+                      }
 
                       zoomLive?.removeObserver(zoomObserver)
                       zoomLive = cam.cameraInfo.zoomState
                       zoomLive?.observe(this, zoomObserver)
 
+                      pendingZoom?.let { z ->
+                          val zs = cam.cameraInfo.zoomState.value
+                          val target = if (zs != null) z.coerceIn(zs.minZoomRatio, zs.maxZoomRatio) else z
+                          cam.cameraControl.setZoomRatio(target)
+                      }
+                      pendingZoom = null
+
+                      buildZoomChips()
                       applyFlash()
                       updateFlashUi()
+                      updateTopBarUi()
                   } catch (e: Exception) {
-                      Toast.makeText(this, "Не удалось запустить камеру", Toast.LENGTH_LONG).show()
+                      pendingZoom = null
+                      if (effExt != ExtensionMode.NONE && allowExt) {
+                          extMode = ExtensionMode.NONE
+                          saveSettings()
+                          toast("Этот режим не поддерживается")
+                          bindCamera(false)
+                      } else if (activeBackId != null) {
+                          activeBackId = null
+                          toast("Этот объектив приложению недоступен")
+                          bindCamera(false)
+                      } else {
+                          Toast.makeText(this, "Не удалось запустить камеру", Toast.LENGTH_LONG).show()
+                      }
                   }
               }
 
@@ -1058,10 +1628,72 @@ jobs:
                   }
                   if (hasLens(provider, newFacing)) {
                       lensFacing = newFacing
+                      activeBackId = null
                       bindCamera()
                   } else {
                       toast("Другой камеры нет")
                   }
+              }
+
+              // ---------------------------------------------------------------- top bar state
+
+              private fun qualityLabel(q: Quality): String = when (q) {
+                  Quality.UHD -> "4K"
+                  Quality.FHD -> "FHD"
+                  Quality.HD -> "HD"
+                  else -> "SD"
+              }
+
+              private fun updateTopBarUi() {
+                  val front = lensFacing == CameraSelector.LENS_FACING_FRONT
+                  binding.btnMirror.visibility = if (front) View.VISIBLE else View.GONE
+                  binding.btnMirror.setColorFilter(if (mirrorSelfie) yellow else Color.WHITE)
+                  binding.tvExt.visibility =
+                      if (!videoMode && extAvailable.isNotEmpty()) View.VISIBLE else View.GONE
+                  binding.tvFps.visibility =
+                      if (videoMode && fps60Supported) View.VISIBLE else View.GONE
+                  binding.tvFps.text = if (fps60) "60fps" else "30fps"
+                  binding.tvFps.setTextColor(if (fps60) yellow else Color.WHITE)
+                  binding.tvRatio.text =
+                      if (videoMode) qualityLabel(videoQuality) else ratioLabels[ratioIndex]
+              }
+
+              private fun updateExtUi(eff: Int) {
+                  binding.tvExt.text = when {
+                      eff == ExtensionMode.NIGHT -> "НОЧЬ"
+                      eff == ExtensionMode.HDR -> "HDR"
+                      extAvailable.isEmpty() || ExtensionMode.HDR in extAvailable -> "HDR"
+                      else -> "НОЧЬ"
+                  }
+                  binding.tvExt.setTextColor(if (eff != ExtensionMode.NONE) yellow else Color.WHITE)
+              }
+
+              private fun cycleExt() {
+                  if (recording != null || videoMode) return
+                  if (extAvailable.isEmpty()) {
+                      toast("Недоступно на этом телефоне")
+                      return
+                  }
+                  val order = listOf(ExtensionMode.NONE) + extAvailable
+                  val cur = order.indexOf(if (extMode in extAvailable) extMode else ExtensionMode.NONE)
+                  extMode = order[(cur + 1) % order.size]
+                  saveSettings()
+                  showHud(
+                      when (extMode) {
+                          ExtensionMode.HDR -> "HDR включён"
+                          ExtensionMode.NIGHT -> "Ночной режим включён"
+                          else -> "HDR / ночной режим выключен"
+                      }
+                  )
+                  bindCamera()
+              }
+
+              private fun toggleMirror() {
+                  if (recording != null) return
+                  mirrorSelfie = !mirrorSelfie
+                  saveSettings()
+                  showHud(if (mirrorSelfie) "Зеркало вкл: как в превью" else "Зеркало выкл: как видит камера")
+                  bindCamera()
               }
 
               // ---------------------------------------------------------------- aspect ratio
@@ -1069,19 +1701,20 @@ jobs:
               private fun cycleRatio() {
                   if (recording != null) return
                   ratioIndex = (ratioIndex + 1) % ratioLabels.size
+                  saveSettings()
                   applyRatio(true)
               }
 
               private fun applyRatio(rebind: Boolean) {
                   val lp = binding.viewFinder.layoutParams as ConstraintLayout.LayoutParams
-                  lp.dimensionRatio = when (ratioIndex) {
+                  lp.dimensionRatio = when (effRatioIndex()) {
                       0 -> "H,3:4"
                       1 -> "H,9:16"
                       2 -> "H,1:1"
                       else -> null
                   }
                   binding.viewFinder.layoutParams = lp
-                  binding.tvRatio.text = ratioLabels[ratioIndex]
+                  updateTopBarUi()
                   if (rebind) {
                       binding.viewFinder.doOnNextLayout { bindCamera() }
                   }
@@ -1091,10 +1724,23 @@ jobs:
 
               private fun cycleFlash() {
                   val cam = camera
-                  if (cam == null || !cam.cameraInfo.hasFlashUnit()) {
-                      toast("У этой камеры нет вспышки")
+                  if (cam == null) return
+                  val hasUnit = cam.cameraInfo.hasFlashUnit()
+                  val front = lensFacing == CameraSelector.LENS_FACING_FRONT
+
+                  if (!hasUnit) {
+                      if (front && !videoMode) {
+                          // у фронталки нет вспышки: подсвечиваем экраном
+                          flash = if (flash == FLASH_ON) FLASH_OFF else FLASH_ON
+                          saveSettings()
+                          updateFlashUi()
+                          showHud(if (flash == FLASH_ON) "Экранная вспышка: вкл" else "Вспышка выкл")
+                      } else {
+                          toast("У этой камеры нет вспышки")
+                      }
                       return
                   }
+
                   flash = if (videoMode) {
                       if (flash == FLASH_TORCH) FLASH_OFF else FLASH_TORCH
                   } else {
@@ -1102,6 +1748,7 @@ jobs:
                   }
                   applyFlash()
                   updateFlashUi()
+                  saveSettings()
                   showHud(
                       when (flash) {
                           FLASH_AUTO -> "Вспышка: авто"
@@ -1124,7 +1771,9 @@ jobs:
               }
 
               private fun updateFlashUi() {
-                  val has = camera?.cameraInfo?.hasFlashUnit() ?: false
+                  val hasUnit = camera?.cameraInfo?.hasFlashUnit() ?: false
+                  val screenFlashPossible =
+                      lensFacing == CameraSelector.LENS_FACING_FRONT && !videoMode
                   binding.btnFlash.setImageResource(
                       when (flash) {
                           FLASH_AUTO -> R.drawable.ic_flash_auto
@@ -1134,76 +1783,286 @@ jobs:
                       }
                   )
                   binding.btnFlash.setColorFilter(if (flash == FLASH_OFF) Color.WHITE else yellow)
-                  binding.btnFlash.alpha = if (has) 1f else 0.35f
+                  binding.btnFlash.alpha = if (hasUnit || screenFlashPossible) 1f else 0.35f
               }
 
-              // ---------------------------------------------------------------- zoom
+              private fun screenFlashWanted(): Boolean =
+                  lensFacing == CameraSelector.LENS_FACING_FRONT &&
+                      camera?.cameraInfo?.hasFlashUnit() != true &&
+                      flash == FLASH_ON
 
-              private fun updateZoomChip(ratio: Float) {
-                  val text = if (Math.abs(ratio - Math.round(ratio)) < 0.05f) {
-                      "${Math.round(ratio)}x"
+              private fun showScreenFlash(on: Boolean) {
+                  binding.screenFlash.visibility = if (on) View.VISIBLE else View.GONE
+                  val lp = window.attributes
+                  lp.screenBrightness =
+                      if (on) 1f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                  window.attributes = lp
+              }
+
+              // ---------------------------------------------------------------- zoom chips
+
+              private fun fmtZoom(v: Float): String =
+                  if (Math.abs(v - Math.round(v)) < 0.05f) {
+                      "${Math.round(v)}"
                   } else {
-                      String.format(Locale.US, "%.1fx", ratio)
+                      String.format(Locale.US, "%.1f", v)
                   }
-                  binding.tvZoom.text = text
-                  binding.tvZoom.setTextColor(if (ratio > 1.05f) yellow else Color.WHITE)
+
+              private fun lensBase(): Float {
+                  if (lensFacing != CameraSelector.LENS_FACING_BACK) return 1f
+                  val id = activeBackId ?: return 1f
+                  return ultraLens?.takeIf { it.id == id }?.factor
+                      ?: teleLens?.takeIf { it.id == id }?.factor
+                      ?: 1f
               }
 
-              private fun cycleZoom() {
-                  val cam = camera ?: return
-                  val s = cam.cameraInfo.zoomState.value ?: return
-                  val presets = mutableListOf<Float>()
-                  if (s.minZoomRatio < 0.95f) presets.add(s.minZoomRatio)
-                  presets.add(1f)
-                  if (s.maxZoomRatio >= 2f) presets.add(2f)
-                  if (s.maxZoomRatio >= 5f) presets.add(5f)
-                  val next = presets.firstOrNull { it > s.zoomRatio + 0.05f } ?: presets.first()
-                  cam.cameraControl.setZoomRatio(next)
+              private fun buildZoomChips() {
+                  zoomChips.clear()
+                  val back = lensFacing == CameraSelector.LENS_FACING_BACK
+                  val ultra = if (back) ultraLens else null
+                  val tele = if (back) teleLens else null
+
+                  if (mainZoomMin < 0.95f) {
+                      // ширик уже внутри логической камеры, достаточно zoomRatio < 1
+                      zoomChips.add(ZoomChip(mainZoomMin, null, mainZoomMin))
+                  } else if (ultra != null) {
+                      zoomChips.add(ZoomChip(ultra.factor, ultra.id, 1f))
+                  }
+                  zoomChips.add(ZoomChip(1f, null, 1f))
+                  if (mainZoomMax >= 2f && (tele == null || tele.factor > 2.5f)) {
+                      zoomChips.add(ZoomChip(2f, null, 2f))
+                  }
+                  if (tele != null) {
+                      zoomChips.add(ZoomChip(tele.factor, tele.id, 1f))
+                  } else if (mainZoomMax >= 5f) {
+                      zoomChips.add(ZoomChip(5f, null, 5f))
+                  }
+                  zoomChips.sortBy { it.effective }
+
+                  binding.zoomRow.removeAllViews()
+                  for (c in zoomChips) {
+                      val tv = TextView(this).apply {
+                          gravity = Gravity.CENTER
+                          minWidth = dp(40).toInt()
+                          setPadding(dp(8).toInt(), 0, dp(8).toInt(), 0)
+                          textSize = 13f
+                          setTypeface(typeface, Typeface.BOLD)
+                          setOnClickListener { onChipClick(c) }
+                          setOnLongClickListener {
+                              showCameraInfo()
+                              true
+                          }
+                      }
+                      binding.zoomRow.addView(
+                          tv,
+                          LinearLayout.LayoutParams(
+                              LinearLayout.LayoutParams.WRAP_CONTENT,
+                              dp(32).toInt()
+                          )
+                      )
+                  }
+                  updateZoomUi(lensBase() * (camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f))
+              }
+
+              private fun updateZoomUi(effective: Float) {
+                  if (zoomChips.isEmpty()) return
+                  var idx = 0
+                  zoomChips.forEachIndexed { i, c -> if (c.effective <= effective + 0.05f) idx = i }
+                  for (i in 0 until binding.zoomRow.childCount) {
+                      if (i >= zoomChips.size) break
+                      val tv = binding.zoomRow.getChildAt(i) as TextView
+                      val c = zoomChips[i]
+                      if (i == idx) {
+                          val shown = if (Math.abs(effective - c.effective) < 0.05f) c.effective else effective
+                          tv.text = fmtZoom(shown) + "x"
+                          tv.setTextColor(yellow)
+                          tv.setBackgroundResource(R.drawable.chip_sel_bg)
+                      } else {
+                          tv.text = fmtZoom(c.effective)
+                          tv.setTextColor(Color.WHITE)
+                          tv.background = null
+                      }
+                  }
+              }
+
+              private fun onChipClick(c: ZoomChip) {
+                  if (lensFacing == CameraSelector.LENS_FACING_BACK && c.lens != activeBackId) {
+                      if (recording != null) {
+                          toast("Во время записи объектив менять нельзя")
+                          return
+                      }
+                      activeBackId = c.lens
+                      pendingZoom = c.zoom
+                      bindCamera()
+                  } else {
+                      val cam = camera ?: return
+                      val zs = cam.cameraInfo.zoomState.value
+                      val target = if (zs != null) c.zoom.coerceIn(zs.minZoomRatio, zs.maxZoomRatio) else c.zoom
+                      cam.cameraControl.setZoomRatio(target)
+                  }
+              }
+
+              // ---------------------------------------------------------------- camera diagnostics
+
+              private fun cameraReport(): String {
+                  val sb = StringBuilder()
+                  sb.append(Build.MANUFACTURER).append(' ').append(Build.MODEL)
+                      .append(", Android ").append(Build.VERSION.RELEASE)
+                      .append(" (API ").append(Build.VERSION.SDK_INT).append(")\n\n")
+
+                  sb.append("Что выбрало приложение:\n")
+                  sb.append("• основная задняя: ").append(mainBackId ?: "не найдена").append('\n')
+                  val u = ultraLens
+                  sb.append("• ультраширик: ")
+                      .append(if (u != null) "id ${u.id}, ×${fmtZoom(u.factor)}" else "отдельной камерой не виден")
+                      .append('\n')
+                  val t = teleLens
+                  sb.append("• телевик: ")
+                      .append(if (t != null) "id ${t.id}, ×${fmtZoom(t.factor)}" else "отдельной камерой не виден")
+                      .append('\n')
+                  sb.append("• зум основной: ")
+                      .append(String.format(Locale.US, "%.2f–%.2f", mainZoomMin, mainZoomMax))
+                      .append('\n')
+
+                  val seen = try {
+                      cameraProvider?.availableCameraInfos
+                          ?.mapNotNull {
+                              try {
+                                  Camera2CameraInfo.from(it).cameraId
+                              } catch (e: Exception) {
+                                  null
+                              }
+                          }
+                          ?.joinToString(", ")
+                  } catch (e: Exception) {
+                      null
+                  }
+                  sb.append("• видит CameraX: ").append(seen ?: "?").append("\n\n")
+
+                  sb.append("Все камеры в системе (Camera2):\n")
+                  try {
+                      val cm = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                      for (id in cm.cameraIdList) {
+                          val ch = cm.getCameraCharacteristics(id)
+                          val facing = when (ch.get(CameraCharacteristics.LENS_FACING)) {
+                              CameraCharacteristics.LENS_FACING_BACK -> "задняя"
+                              CameraCharacteristics.LENS_FACING_FRONT -> "фронтальная"
+                              else -> "внешняя"
+                          }
+                          val focal = ch.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                              ?.joinToString("/") ?: "?"
+                          sb.append("• id ").append(id).append(": ").append(facing)
+                              .append(", f=").append(focal).append(" мм")
+                          val pix = ch.get(CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE)
+                          if (pix != null) {
+                              sb.append(", ")
+                                  .append(String.format(Locale.US, "%.0f МП", pix.width * pix.height / 1e6f))
+                          }
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                              val z = ch.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
+                              if (z != null) sb.append(", зум ${z.lower}–${z.upper}")
+                          }
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                              val ph = ch.physicalCameraIds
+                              if (ph.isNotEmpty()) sb.append(", физ. камеры: ").append(ph.joinToString(","))
+                          }
+                          sb.append('\n')
+                      }
+                  } catch (e: Exception) {
+                      sb.append("не удалось прочитать\n")
+                  }
+                  return sb.toString()
+              }
+
+              private fun showCameraInfo() {
+                  val text = cameraReport()
+                  AlertDialog.Builder(this)
+                      .setTitle("Камеры")
+                      .setMessage(text)
+                      .setPositiveButton("Копировать") { _, _ ->
+                          val clip = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                          clip.setPrimaryClip(ClipData.newPlainText("cameras", text))
+                          toast("Скопировано")
+                      }
+                      .setNegativeButton("Закрыть", null)
+                      .show()
               }
 
               // ---------------------------------------------------------------- focus / exposure
 
-              private fun focusAt(x: Float, y: Float) {
+              private fun focusAt(x: Float, y: Float, lock: Boolean) {
                   val cam = camera ?: return
                   val point = binding.viewFinder.meteringPointFactory.createPoint(x, y)
-                  val action = FocusMeteringAction.Builder(
+                  val builder = FocusMeteringAction.Builder(
                       point,
                       FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
-                  ).setAutoCancelDuration(4, TimeUnit.SECONDS).build()
-                  cam.cameraControl.startFocusAndMetering(action)
+                  )
+                  if (lock) {
+                      builder.disableAutoCancel()
+                  } else {
+                      builder.setAutoCancelDuration(4, TimeUnit.SECONDS)
+                  }
+                  cam.cameraControl.startFocusAndMetering(builder.build())
+                  aeLocked = lock
                   lastFocusTime = SystemClock.uptimeMillis()
-                  showFocusRing(x, y)
+                  showFocusUi(x, y)
+                  if (lock) showHud("AE/AF зафиксированы")
               }
 
-              private fun showFocusRing(x: Float, y: Float) {
+              private fun showFocusUi(x: Float, y: Float) {
+                  val vf = binding.viewFinder
+                  val px = if (vf.scaleX < 0) vf.width - x else x
                   val ring = binding.focusRing
-                  val half = dp(36)
+                  val slider = binding.exposureSlider
                   ring.animate().cancel()
-                  ring.translationX = binding.viewFinder.left + x - half
-                  ring.translationY = binding.viewFinder.top + y - half
+                  slider.animate().cancel()
+
+                  val half = dp(36)
+                  ring.translationX = vf.left + px - half
+                  ring.translationY = vf.top + y - half
                   ring.visibility = View.VISIBLE
                   ring.alpha = 1f
                   ring.scaleX = 1.4f
                   ring.scaleY = 1.4f
-                  ring.animate()
-                      .setStartDelay(0)
-                      .scaleX(1f)
-                      .scaleY(1f)
-                      .setDuration(200)
-                      .withEndAction {
-                          ring.animate()
-                              .setStartDelay(1200)
-                              .alpha(0f)
-                              .setDuration(300)
-                              .withEndAction { ring.visibility = View.GONE }
-                              .start()
-                      }
-                      .start()
+                  ring.animate().setStartDelay(0).scaleX(1f).scaleY(1f).setDuration(200).start()
+
+                  val sw = dp(28)
+                  val sh = dp(120)
+                  val sx = if (px + half + sw + dp(8) > vf.width) {
+                      px - half - dp(8) - sw
+                  } else {
+                      px + half + dp(8)
+                  }
+                  slider.translationX = vf.left + sx
+                  slider.translationY = vf.top + y - sh / 2f
+
+                  val st = camera?.cameraInfo?.exposureState
+                  if (st != null && st.isExposureCompensationSupported) {
+                      updateExposureSlider()
+                      slider.visibility = View.VISIBLE
+                      slider.alpha = 1f
+                  } else {
+                      slider.visibility = View.GONE
+                  }
+                  scheduleHideFocusUi()
               }
 
-              /** Свайп вверх/вниз сразу после тапа меняет яркость. */
+              private fun scheduleHideFocusUi() {
+                  uiHandler.removeCallbacks(hideFocusUi)
+                  if (!aeLocked) uiHandler.postDelayed(hideFocusUi, 2500)
+              }
+
+              private fun updateExposureSlider() {
+                  val st = camera?.cameraInfo?.exposureState ?: return
+                  if (!st.isExposureCompensationSupported) return
+                  val r = st.exposureCompensationRange
+                  val span = (r.upper - r.lower).coerceAtLeast(1)
+                  binding.exposureSlider.fraction = (exposureIndex - r.lower).toFloat() / span
+              }
+
+              /** Свайп вверх/вниз после тапа меняет яркость. */
               private fun adjustExposure(distanceY: Float) {
-                  if (SystemClock.uptimeMillis() - lastFocusTime > 4000) return
+                  if (!aeLocked && SystemClock.uptimeMillis() - lastFocusTime > 4000) return
                   val cam = camera ?: return
                   val st = cam.cameraInfo.exposureState
                   if (!st.isExposureCompensationSupported) return
@@ -1218,6 +2077,12 @@ jobs:
                   cam.cameraControl.setExposureCompensationIndex(exposureIndex)
                   lastFocusTime = SystemClock.uptimeMillis()
 
+                  updateExposureSlider()
+                  if (binding.exposureSlider.visibility == View.VISIBLE) {
+                      binding.exposureSlider.alpha = 1f
+                      scheduleHideFocusUi()
+                  }
+
                   val ev = exposureIndex * st.exposureCompensationStep.toFloat()
                   showHud(String.format(Locale.US, "Яркость %+.1f", ev))
               }
@@ -1231,6 +2096,7 @@ jobs:
                       else -> 0
                   }
                   binding.btnTimer.setColorFilter(if (timerSeconds > 0) yellow else Color.WHITE)
+                  saveSettings()
                   showHud(if (timerSeconds == 0) "Таймер выключен" else "Таймер: $timerSeconds с")
               }
 
@@ -1238,6 +2104,7 @@ jobs:
                   gridOn = !gridOn
                   binding.gridOverlay.visibility = if (gridOn) View.VISIBLE else View.GONE
                   binding.btnGrid.setColorFilter(if (gridOn) yellow else Color.WHITE)
+                  saveSettings()
               }
 
               private fun startWithTimer(action: () -> Unit) {
@@ -1269,10 +2136,45 @@ jobs:
                   binding.tvCountdown.visibility = View.GONE
               }
 
+              // ---------------------------------------------------------------- video options
+
+              private fun cycleVideoQuality() {
+                  if (recording != null || !videoMode) return
+                  val cam = camera ?: return
+                  val supported = try {
+                      QualitySelector.getSupportedQualities(cam.cameraInfo)
+                  } catch (e: Exception) {
+                      emptyList()
+                  }
+                  val options = qualityAll.filter { it in supported }.ifEmpty { listOf(Quality.FHD) }
+                  val cur = options.indexOf(videoQuality)
+                  videoQuality = options[(cur + 1) % options.size]
+                  saveSettings()
+                  showHud("Видео: " + qualityLabel(videoQuality))
+                  bindCamera()
+              }
+
+              private fun cycleFps() {
+                  if (recording != null || !videoMode) return
+                  fps60 = !fps60
+                  saveSettings()
+                  showHud(if (fps60) "60 кадров/с" else "30 кадров/с")
+                  bindCamera()
+              }
+
+              private fun togglePause() {
+                  val r = recording ?: return
+                  if (paused) r.resume() else r.pause()
+             }
+
+              private fun recLabel(sec: Long): String =
+                  String.format(Locale.US, "%s %02d:%02d", if (paused) "❚❚" else "●", sec / 60, sec % 60)
+
               // ---------------------------------------------------------------- photo / video mode
 
               private fun setMode(video: Boolean) {
                   if (recording != null || video == videoMode) return
+                  val before = effRatioIndex()
                   videoMode = video
                   if (video) {
                       if (flash == FLASH_AUTO || flash == FLASH_ON) flash = FLASH_OFF
@@ -1283,7 +2185,12 @@ jobs:
                   }
                   updateModeUi()
                   updateFlashUi()
-                  bindCamera()
+                  if (before != effRatioIndex()) {
+                      applyRatio(true)
+                  } else {
+                      applyRatio(false)
+                      bindCamera()
+                  }
               }
 
               private fun updateModeUi() {
@@ -1304,15 +2211,28 @@ jobs:
                           else -> R.drawable.shutter_button_bg
                       }
                   )
+                  paused = false
                   binding.tvRecTime.visibility = if (on) View.VISIBLE else View.GONE
-                  if (on) binding.tvRecTime.text = "● 00:00"
+                  if (on) binding.tvRecTime.text = recLabel(0)
+
+                  // во время записи кнопка смены камеры работает как пауза
+                  if (on) {
+                      binding.btnSwitchCamera.setImageResource(android.R.drawable.ic_media_pause)
+                      binding.btnSwitchCamera.contentDescription = "Пауза"
+                  } else {
+                      binding.btnSwitchCamera.setImageResource(R.drawable.ic_flip_camera)
+                      binding.btnSwitchCamera.contentDescription = "Переключить камеру"
+                  }
+
                   val a = if (on) 0.3f else 1f
                   listOf<View>(
-                      binding.btnSwitchCamera,
                       binding.ivThumb,
                       binding.tvModePhoto,
                       binding.tvModeVideo,
-                      binding.tvRatio
+                      binding.tvRatio,
+                      binding.tvFps,
+                      binding.tvExt,
+                      binding.btnMirror
                   ).forEach { it.alpha = a }
               }
 
@@ -1346,6 +2266,17 @@ jobs:
 
               private fun takePhoto() {
                   val capture = imageCapture ?: return
+                  if (screenFlashWanted()) {
+                      showScreenFlash(true)
+                      binding.root.postDelayed({
+                          if (!isDestroyed) doCapture(capture)
+                      }, 350)
+                  } else {
+                      doCapture(capture)
+                  }
+              }
+
+              private fun doCapture(capture: ImageCapture) {
                   animateShutter()
 
                   val name = "IMG_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -1357,21 +2288,28 @@ jobs:
                       }
                   }
 
+                  val metadata = ImageCapture.Metadata().apply {
+                      isReversedHorizontal =
+                          lensFacing == CameraSelector.LENS_FACING_FRONT && mirrorSelfie
+                  }
+
                   val options = ImageCapture.OutputFileOptions.Builder(
                       contentResolver,
                       MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                       values
-                  ).build()
+                  ).setMetadata(metadata).build()
 
                   capture.takePicture(
                       options,
                       ContextCompat.getMainExecutor(this),
                       object : ImageCapture.OnImageSavedCallback {
                           override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                              showScreenFlash(false)
                               output.savedUri?.let { showThumb(it, false) }
                           }
 
                           override fun onError(exc: ImageCaptureException) {
+                              showScreenFlash(false)
                               Toast.makeText(this@MainActivity, "Ошибка съёмки", Toast.LENGTH_SHORT).show()
                           }
                       }
@@ -1402,13 +2340,25 @@ jobs:
                       pending = pending.withAudioEnabled()
                   }
 
+                  recSeconds = 0L
                   recording = pending.start(ContextCompat.getMainExecutor(this)) { event ->
                       when (event) {
                           is VideoRecordEvent.Start -> setRecordingUi(true)
                           is VideoRecordEvent.Status -> {
-                              val sec = event.recordingStats.recordedDurationNanos / 1_000_000_000L
-                              binding.tvRecTime.text =
-                                  String.format(Locale.US, "● %02d:%02d", sec / 60, sec % 60)
+                              recSeconds = event.recordingStats.recordedDurationNanos / 1_000_000_000L
+                              binding.tvRecTime.text = recLabel(recSeconds)
+                          }
+                          is VideoRecordEvent.Pause -> {
+                              paused = true
+                              binding.btnSwitchCamera.setImageResource(android.R.drawable.ic_media_play)
+                              binding.btnSwitchCamera.contentDescription = "Продолжить"
+                              binding.tvRecTime.text = recLabel(recSeconds)
+                          }
+                          is VideoRecordEvent.Resume -> {
+                              paused = false
+                              binding.btnSwitchCamera.setImageResource(android.R.drawable.ic_media_pause)
+                              binding.btnSwitchCamera.contentDescription = "Пауза"
+                              binding.tvRecTime.text = recLabel(recSeconds)
                           }
                           is VideoRecordEvent.Finalize -> {
                               recording = null
