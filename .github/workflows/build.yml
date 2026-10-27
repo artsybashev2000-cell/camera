@@ -55,8 +55,8 @@ jobs:
                   applicationId "com.example.simplecamera"
                   minSdk 24
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "2.0"
               }
 
               compileOptions {
@@ -76,11 +76,13 @@ jobs:
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
               implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
               def camerax = "1.3.1"
               implementation "androidx.camera:camera-core:$camerax"
               implementation "androidx.camera:camera-camera2:$camerax"
               implementation "androidx.camera:camera-lifecycle:$camerax"
+              implementation "androidx.camera:camera-video:$camerax"
               implementation "androidx.camera:camera-view:$camerax"
           }
           EOF_FILE
@@ -89,10 +91,17 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
               <uses-permission
                   android:name="android.permission.WRITE_EXTERNAL_STORAGE"
                   android:maxSdkVersion="28" />
+              <uses-permission
+                  android:name="android.permission.READ_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="28" />
               <uses-feature android:name="android.hardware.camera.any" />
+              <uses-feature
+                  android:name="android.hardware.microphone"
+                  android:required="false" />
 
               <application
                   android:allowBackup="true"
@@ -116,50 +125,288 @@ jobs:
           EOF_FILE
           cat > app/src/main/res/layout/activity_main.xml << 'EOF_FILE'
           <?xml version="1.0" encoding="utf-8"?>
-          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+          <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-              android:background="#000000"
-              android:orientation="vertical">
+              android:background="#000000">
 
               <androidx.camera.view.PreviewView
                   android:id="@+id/viewFinder"
-                  android:layout_width="match_parent"
+                  android:layout_width="0dp"
                   android:layout_height="0dp"
-                  android:layout_weight="1" />
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+              <com.example.simplecamera.GridOverlayView
+                  android:id="@+id/gridOverlay"
+                  android:layout_width="0dp"
+                  android:layout_height="0dp"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="@id/viewFinder"
+                  app:layout_constraintEnd_toEndOf="@id/viewFinder"
+                  app:layout_constraintStart_toStartOf="@id/viewFinder"
+                  app:layout_constraintTop_toTopOf="@id/viewFinder" />
+
+              <View
+                  android:id="@+id/focusRing"
+                  android:layout_width="72dp"
+                  android:layout_height="72dp"
+                  android:background="@drawable/focus_ring"
+                  android:visibility="gone"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
 
               <LinearLayout
-                  android:layout_width="match_parent"
-                  android:layout_height="130dp"
-                  android:background="#111111"
-                  android:gravity="center"
-                  android:orientation="horizontal">
+                  android:id="@+id/topBar"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:background="@drawable/top_gradient"
+                  android:clickable="true"
+                  android:gravity="center_vertical"
+                  android:orientation="horizontal"
+                  android:paddingStart="8dp"
+                  android:paddingTop="8dp"
+                  android:paddingEnd="8dp"
+                  android:paddingBottom="20dp"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent">
 
                   <ImageButton
-                      android:id="@+id/btnSwitchCamera"
-                      android:layout_width="56dp"
-                      android:layout_height="56dp"
-                      android:background="@android:color/transparent"
-                      android:contentDescription="Переключить камеру"
-                      android:src="@android:drawable/ic_menu_rotate"
-                      android:tint="#FFFFFF" />
+                      android:id="@+id/btnFlash"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:contentDescription="Вспышка"
+                      android:scaleType="centerInside"
+                      android:src="@drawable/ic_flash_off" />
 
                   <ImageButton
-                      android:id="@+id/btnCapture"
-                      android:layout_width="76dp"
-                      android:layout_height="76dp"
-                      android:layout_marginStart="40dp"
-                      android:layout_marginEnd="40dp"
-                      android:background="@drawable/shutter_button_bg"
-                      android:contentDescription="Снять фото" />
+                      android:id="@+id/btnTimer"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:contentDescription="Таймер"
+                      android:scaleType="centerInside"
+                      android:src="@drawable/ic_timer" />
 
-                  <View
-                      android:layout_width="56dp"
-                      android:layout_height="56dp" />
+                  <TextView
+                      android:id="@+id/tvRatio"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:gravity="center"
+                      android:text="FULL"
+                      android:textColor="#FFFFFF"
+                      android:textSize="14sp"
+                      android:textStyle="bold" />
+
+                  <ImageButton
+                      android:id="@+id/btnGrid"
+                      android:layout_width="0dp"
+                      android:layout_height="48dp"
+                      android:layout_weight="1"
+                      android:background="?android:attr/selectableItemBackgroundBorderless"
+                      android:contentDescription="Сетка"
+                      android:scaleType="centerInside"
+                      android:src="@drawable/ic_grid" />
 
               </LinearLayout>
 
-          </LinearLayout>
+              <TextView
+                  android:id="@+id/tvRecTime"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:layout_marginTop="4dp"
+                  android:background="@drawable/rec_bg"
+                  android:paddingStart="14dp"
+                  android:paddingTop="6dp"
+                  android:paddingEnd="14dp"
+                  android:paddingBottom="6dp"
+                  android:text="● 00:00"
+                  android:textColor="#FFFFFF"
+                  android:textSize="14sp"
+                  android:textStyle="bold"
+                  android:visibility="gone"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toBottomOf="@id/topBar" />
+
+              <TextView
+                  android:id="@+id/tvHud"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:background="@drawable/pill_bg"
+                  android:paddingStart="16dp"
+                  android:paddingTop="8dp"
+                  android:paddingEnd="16dp"
+                  android:paddingBottom="8dp"
+                  android:textColor="#FFFFFF"
+                  android:textSize="14sp"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent"
+                  app:layout_constraintVertical_bias="0.2" />
+
+              <TextView
+                  android:id="@+id/tvCountdown"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:shadowColor="#80000000"
+                  android:shadowDx="0"
+                  android:shadowDy="4"
+                  android:shadowRadius="12"
+                  android:textColor="#FFFFFF"
+                  android:textSize="120sp"
+                  android:textStyle="bold"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+              <LinearLayout
+                  android:id="@+id/bottomBar"
+                  android:layout_width="0dp"
+                  android:layout_height="wrap_content"
+                  android:background="@drawable/bottom_gradient"
+                  android:clickable="true"
+                  android:gravity="center_horizontal"
+                  android:orientation="vertical"
+                  android:paddingTop="28dp"
+                  android:paddingBottom="12dp"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent">
+
+                  <TextView
+                      android:id="@+id/tvZoom"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:background="@drawable/pill_bg"
+                      android:paddingStart="16dp"
+                      android:paddingTop="6dp"
+                      android:paddingEnd="16dp"
+                      android:paddingBottom="6dp"
+                      android:text="1x"
+                      android:textColor="#FFFFFF"
+                      android:textSize="14sp"
+                      android:textStyle="bold" />
+
+                  <LinearLayout
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:layout_marginTop="10dp"
+                      android:orientation="horizontal">
+
+                      <TextView
+                          android:id="@+id/tvModePhoto"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:paddingStart="16dp"
+                          android:paddingTop="8dp"
+                          android:paddingEnd="16dp"
+                          android:paddingBottom="8dp"
+                          android:text="ФОТО"
+                          android:textColor="#FFD400"
+                          android:textSize="14sp"
+                          android:textStyle="bold" />
+
+                      <TextView
+                          android:id="@+id/tvModeVideo"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:paddingStart="16dp"
+                          android:paddingTop="8dp"
+                          android:paddingEnd="16dp"
+                          android:paddingBottom="8dp"
+                          android:text="ВИДЕО"
+                          android:textColor="#99FFFFFF"
+                          android:textSize="14sp"
+                          android:textStyle="bold" />
+
+                  </LinearLayout>
+
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:layout_marginTop="10dp"
+                      android:gravity="center_vertical"
+                      android:orientation="horizontal">
+
+                      <FrameLayout
+                          android:layout_width="0dp"
+                          android:layout_height="wrap_content"
+                          android:layout_weight="1">
+
+                          <ImageView
+                              android:id="@+id/ivThumb"
+                              android:layout_width="52dp"
+                              android:layout_height="52dp"
+                              android:layout_gravity="center"
+                              android:background="@drawable/thumb_bg"
+                              android:contentDescription="Последний снимок"
+                              android:padding="2dp"
+                              android:scaleType="centerCrop" />
+
+                      </FrameLayout>
+
+                      <FrameLayout
+                          android:layout_width="0dp"
+                          android:layout_height="wrap_content"
+                          android:layout_weight="1">
+
+                          <ImageButton
+                              android:id="@+id/btnCapture"
+                              android:layout_width="76dp"
+                              android:layout_height="76dp"
+                              android:layout_gravity="center"
+                              android:background="@drawable/shutter_button_bg"
+                              android:contentDescription="Снять фото" />
+
+                      </FrameLayout>
+
+                      <FrameLayout
+                          android:layout_width="0dp"
+                          android:layout_height="wrap_content"
+                          android:layout_weight="1">
+
+                          <ImageButton
+                              android:id="@+id/btnSwitchCamera"
+                              android:layout_width="56dp"
+                              android:layout_height="56dp"
+                              android:layout_gravity="center"
+                              android:background="@android:color/transparent"
+                              android:contentDescription="Переключить камеру"
+                              android:src="@android:drawable/ic_menu_rotate"
+                              android:tint="#FFFFFF" />
+
+                      </FrameLayout>
+
+                  </LinearLayout>
+
+              </LinearLayout>
+
+              <View
+                  android:id="@+id/shutterFlash"
+                  android:layout_width="0dp"
+                  android:layout_height="0dp"
+                  android:background="#FFFFFF"
+                  android:visibility="gone"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+          </androidx.constraintlayout.widget.ConstraintLayout>
           EOF_FILE
           cat > app/src/main/res/drawable/shutter_button_bg.xml << 'EOF_FILE'
           <?xml version="1.0" encoding="utf-8"?>
@@ -181,40 +428,358 @@ jobs:
               </item>
           </layer-list>
           EOF_FILE
+          cat > app/src/main/res/drawable/shutter_video_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item>
+                  <shape android:shape="oval">
+                      <stroke android:width="4dp" android:color="#FFFFFF" />
+                      <solid android:color="#00000000" />
+                  </shape>
+              </item>
+              <item
+                  android:left="9dp"
+                  android:top="9dp"
+                  android:right="9dp"
+                  android:bottom="9dp">
+                  <shape android:shape="oval">
+                      <solid android:color="#E53935" />
+                  </shape>
+              </item>
+          </layer-list>
+          EOF_FILE
+          cat > app/src/main/res/drawable/shutter_recording_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item>
+                  <shape android:shape="oval">
+                      <stroke android:width="4dp" android:color="#FFFFFF" />
+                      <solid android:color="#00000000" />
+                  </shape>
+              </item>
+              <item
+                  android:left="24dp"
+                  android:top="24dp"
+                  android:right="24dp"
+                  android:bottom="24dp">
+                  <shape android:shape="rectangle">
+                      <corners android:radius="6dp" />
+                      <solid android:color="#E53935" />
+                  </shape>
+              </item>
+          </layer-list>
+          EOF_FILE
+          cat > app/src/main/res/drawable/top_gradient.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <gradient
+                  android:angle="90"
+                  android:endColor="#99000000"
+                  android:startColor="#00000000" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/bottom_gradient.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <gradient
+                  android:angle="270"
+                  android:endColor="#B3000000"
+                  android:startColor="#00000000" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/pill_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#80000000" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/rec_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <solid android:color="#E53935" />
+              <corners android:radius="20dp" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/focus_ring.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <stroke
+                  android:width="2dp"
+                  android:color="#FFD400" />
+              <corners android:radius="6dp" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/thumb_bg.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="oval">
+              <solid android:color="#33FFFFFF" />
+              <stroke
+                  android:width="2dp"
+                  android:color="#FFFFFF" />
+          </shape>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_flash_on.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M7,2v11h3v9l7,-12h-4l4,-8z" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_flash_off.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="1.6"
+                  android:strokeLineJoin="round"
+                  android:pathData="M7,2v11h3v9l7,-12h-4l4,-8z" />
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:pathData="M4,3L20,21" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_flash_auto.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <group
+                  android:pivotX="12"
+                  android:pivotY="12"
+                  android:scaleX="0.85"
+                  android:scaleY="0.85"
+                  android:translateX="-2">
+                  <path
+                      android:fillColor="#FFFFFF"
+                      android:pathData="M7,2v11h3v9l7,-12h-4l4,-8z" />
+              </group>
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round"
+                  android:pathData="M15,21L18,12L21,21 M16.2,18L19.8,18" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_flash_torch.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:pathData="M2,12a10,10 0 1,0 20,0a10,10 0 1,0 -20,0" />
+              <group
+                  android:pivotX="12"
+                  android:pivotY="12"
+                  android:scaleX="0.62"
+                  android:scaleY="0.62">
+                  <path
+                      android:fillColor="#FFFFFF"
+                      android:pathData="M7,2v11h3v9l7,-12h-4l4,-8z" />
+              </group>
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_timer.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineCap="round"
+                  android:strokeLineJoin="round"
+                  android:pathData="M4,14a8,8 0 1,0 16,0a8,8 0 1,0 -16,0 M12,14V9 M9.5,2.5h5 M12,3v3" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/res/drawable/ic_grid.xml << 'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="28dp"
+              android:height="28dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:strokeColor="#FFFFFF"
+                  android:strokeWidth="2"
+                  android:strokeLineJoin="round"
+                  android:pathData="M4,4h16v16h-16z M4,9.33h16 M4,14.66h16 M9.33,4v16 M14.66,4v16" />
+          </vector>
+          EOF_FILE
+          cat > app/src/main/java/com/example/simplecamera/GridOverlayView.kt << 'EOF_FILE'
+          package com.example.simplecamera
+
+          import android.content.Context
+          import android.graphics.Canvas
+          import android.graphics.Color
+          import android.graphics.Paint
+          import android.util.AttributeSet
+          import android.view.View
+
+          /** Сетка «правило третей» поверх превью. */
+          class GridOverlayView @JvmOverloads constructor(
+              context: Context,
+              attrs: AttributeSet? = null
+          ) : View(context, attrs) {
+
+              private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  color = Color.argb(150, 255, 255, 255)
+                  strokeWidth = resources.displayMetrics.density
+              }
+
+              override fun onDraw(canvas: Canvas) {
+                  super.onDraw(canvas)
+                  val w = width.toFloat()
+                  val h = height.toFloat()
+                  for (i in 1..2) {
+                      canvas.drawLine(w * i / 3f, 0f, w * i / 3f, h, paint)
+                      canvas.drawLine(0f, h * i / 3f, w, h * i / 3f, paint)
+                  }
+              }
+          }
+          EOF_FILE
           cat > app/src/main/java/com/example/simplecamera/MainActivity.kt << 'EOF_FILE'
           package com.example.simplecamera
 
           import android.Manifest
+          import android.annotation.SuppressLint
+          import android.content.ContentUris
           import android.content.ContentValues
+          import android.content.Intent
           import android.content.pm.PackageManager
+          import android.graphics.Bitmap
+          import android.graphics.BitmapFactory
+          import android.graphics.Color
+          import android.graphics.Matrix
+          import android.media.ExifInterface
+          import android.media.MediaMetadataRetriever
+          import android.net.Uri
           import android.os.Build
           import android.os.Bundle
+          import android.os.CountDownTimer
+          import android.os.SystemClock
           import android.provider.MediaStore
+          import android.view.GestureDetector
+          import android.view.HapticFeedbackConstants
+          import android.view.MotionEvent
+          import android.view.ScaleGestureDetector
+          import android.view.View
+          import android.view.ViewOutlineProvider
+          import android.view.WindowManager
           import android.widget.Toast
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.camera.core.AspectRatio
+          import androidx.camera.core.Camera
           import androidx.camera.core.CameraSelector
+          import androidx.camera.core.FocusMeteringAction
           import androidx.camera.core.ImageCapture
           import androidx.camera.core.ImageCaptureException
           import androidx.camera.core.Preview
+          import androidx.camera.core.UseCaseGroup
+          import androidx.camera.core.ZoomState
           import androidx.camera.lifecycle.ProcessCameraProvider
+          import androidx.camera.video.FallbackStrategy
+          import androidx.camera.video.MediaStoreOutputOptions
+          import androidx.camera.video.Quality
+          import androidx.camera.video.QualitySelector
+          import androidx.camera.video.Recorder
+          import androidx.camera.video.Recording
+          import androidx.camera.video.VideoCapture
+          import androidx.camera.video.VideoRecordEvent
           import androidx.camera.view.PreviewView
+          import androidx.constraintlayout.widget.ConstraintLayout
           import androidx.core.content.ContextCompat
+          import androidx.core.view.ViewCompat
+          import androidx.core.view.WindowCompat
+          import androidx.core.view.WindowInsetsCompat
+          import androidx.core.view.doOnNextLayout
+          import androidx.core.view.updatePadding
+          import androidx.lifecycle.LiveData
+          import androidx.lifecycle.Observer
           import com.example.simplecamera.databinding.ActivityMainBinding
           import java.text.SimpleDateFormat
           import java.util.Date
           import java.util.Locale
+          import java.util.concurrent.TimeUnit
 
           class MainActivity : AppCompatActivity() {
 
+              companion object {
+                  private const val FLASH_OFF = 0
+                  private const val FLASH_AUTO = 1
+                  private const val FLASH_ON = 2
+                  private const val FLASH_TORCH = 3
+                  private const val RATIO_FULL = 3
+              }
+
               private lateinit var binding: ActivityMainBinding
+              private lateinit var scaleDetector: ScaleGestureDetector
+              private lateinit var tapDetector: GestureDetector
+
               private var cameraProvider: ProcessCameraProvider? = null
+              private var camera: Camera? = null
               private var imageCapture: ImageCapture? = null
+              private var videoCapture: VideoCapture<Recorder>? = null
+              private var recording: Recording? = null
               private var lensFacing = CameraSelector.LENS_FACING_BACK
+
+              private var videoMode = false
+              private var flash = FLASH_OFF
+              private var timerSeconds = 0
+              private var ratioIndex = RATIO_FULL
+              private var gridOn = false
+
+              private var exposureIndex = 0
+              private var exposureAccum = 0f
+              private var lastFocusTime = 0L
+              private var bindRetries = 0
+              private var audioAsked = false
+              private var countDown: CountDownTimer? = null
+
+              private var lastUri: Uri? = null
+              private var lastIsVideo = false
+
+              private var zoomLive: LiveData<ZoomState>? = null
+              private val zoomObserver = Observer<ZoomState> { updateZoomChip(it.zoomRatio) }
+
+              private val yellow = Color.rgb(255, 212, 0)
+              private val dimWhite = Color.argb(153, 255, 255, 255)
+              private val ratioLabels = arrayOf("4:3", "16:9", "1:1", "FULL")
 
               private val neededPermissions: Array<String> =
                   if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                      arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                      arrayOf(
+                          Manifest.permission.CAMERA,
+                          Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                          Manifest.permission.READ_EXTERNAL_STORAGE
+                      )
                   } else {
                       arrayOf(Manifest.permission.CAMERA)
                   }
@@ -228,14 +793,37 @@ jobs:
                       }
                   }
 
+              private val audioLauncher =
+                  registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                      if (!granted) {
+                          Toast.makeText(
+                              this,
+                              "Без микрофона видео будет без звука",
+                              Toast.LENGTH_LONG
+                          ).show()
+                      }
+                  }
+
+              // ---------------------------------------------------------------- lifecycle
+
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+                  setupWindow()
                   binding = ActivityMainBinding.inflate(layoutInflater)
                   setContentView(binding.root)
+                  setupInsets()
 
-                  binding.viewFinder.scaleType = PreviewView.ScaleType.FIT_CENTER
-                  binding.btnCapture.setOnClickListener { takePhoto() }
-                  binding.btnSwitchCamera.setOnClickListener { switchCamera() }
+                  binding.viewFinder.scaleType = PreviewView.ScaleType.FILL_CENTER
+                  binding.ivThumb.outlineProvider = ViewOutlineProvider.BACKGROUND
+                  binding.ivThumb.clipToOutline = true
+
+                  setupGestures()
+                  setupButtons()
+                  applyRatio(false)
+                  updateModeUi()
+                  updateFlashUi()
+                  updateZoomChip(1f)
+                  loadLastMedia()
 
                   if (allPermissionsGranted()) {
                       startCamera()
@@ -244,9 +832,134 @@ jobs:
                   }
               }
 
+              override fun onStop() {
+                  super.onStop()
+                  cancelCountdown()
+              }
+
+              // ---------------------------------------------------------------- window / UI setup
+
+              private fun setupWindow() {
+                  WindowCompat.setDecorFitsSystemWindows(window, false)
+                  window.statusBarColor = Color.TRANSPARENT
+                  window.navigationBarColor = Color.TRANSPARENT
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                      window.isNavigationBarContrastEnforced = false
+                  }
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                      val lp = window.attributes
+                      lp.layoutInDisplayCutoutMode =
+                          WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                      window.attributes = lp
+                  }
+              }
+
+              private fun setupInsets() {
+                  val controller = WindowCompat.getInsetsController(window, binding.root)
+                  controller.isAppearanceLightStatusBars = false
+                  controller.isAppearanceLightNavigationBars = false
+
+                  ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+                      val bars = insets.getInsets(
+                          WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+                      )
+                      binding.topBar.updatePadding(top = bars.top + dp(8).toInt())
+                      binding.bottomBar.updatePadding(bottom = bars.bottom + dp(12).toInt())
+                      insets
+                  }
+              }
+
+              private fun setupButtons() {
+                  binding.btnCapture.setOnClickListener { onShutter() }
+                  binding.btnSwitchCamera.setOnClickListener { switchCamera() }
+                  binding.btnFlash.setOnClickListener { cycleFlash() }
+                  binding.btnTimer.setOnClickListener { cycleTimer() }
+                  binding.tvRatio.setOnClickListener { cycleRatio() }
+                  binding.btnGrid.setOnClickListener { toggleGrid() }
+                  binding.tvZoom.setOnClickListener { cycleZoom() }
+                  binding.tvModePhoto.setOnClickListener { setMode(false) }
+                  binding.tvModeVideo.setOnClickListener { setMode(true) }
+                  binding.ivThumb.setOnClickListener { openLastMedia() }
+              }
+
+              @SuppressLint("ClickableViewAccessibility")
+              private fun setupGestures() {
+                  scaleDetector = ScaleGestureDetector(
+                      this,
+                      object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                          override fun onScale(detector: ScaleGestureDetector): Boolean {
+                              val cam = camera ?: return true
+                              val state = cam.cameraInfo.zoomState.value ?: return true
+                              val target = (state.zoomRatio * detector.scaleFactor)
+                                  .coerceIn(state.minZoomRatio, state.maxZoomRatio)
+                              cam.cameraControl.setZoomRatio(target)
+                              return true
+                          }
+                      }
+                  )
+
+                  tapDetector = GestureDetector(
+                      this,
+                      object : GestureDetector.SimpleOnGestureListener() {
+                          override fun onDown(e: MotionEvent): Boolean = true
+
+                          override fun onSingleTapUp(e: MotionEvent): Boolean {
+                              if (scaleDetector.isInProgress) return false
+                              focusAt(e.x, e.y)
+                              return true
+                          }
+
+                          override fun onScroll(
+                              e1: MotionEvent?,
+                              e2: MotionEvent,
+                              distanceX: Float,
+                              distanceY: Float
+                          ): Boolean {
+                              if (e2.pointerCount > 1 || scaleDetector.isInProgress) return false
+                              adjustExposure(distanceY)
+                              return true
+                          }
+                      }
+                  )
+
+                  binding.viewFinder.setOnTouchListener { _, event ->
+                      scaleDetector.onTouchEvent(event)
+                      tapDetector.onTouchEvent(event)
+                      true
+                  }
+              }
+
+              private fun dp(v: Int): Float = v * resources.displayMetrics.density
+
+              private fun toast(text: String) =
+                  Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+              /** Короткая подсказка по центру экрана, сама исчезает. */
+              private fun showHud(text: String) {
+                  val v = binding.tvHud
+                  v.animate().cancel()
+                  v.text = text
+                  v.visibility = View.VISIBLE
+                  v.alpha = 1f
+                  v.animate()
+                      .setStartDelay(900)
+                      .alpha(0f)
+                      .setDuration(300)
+                      .withEndAction { v.visibility = View.GONE }
+                      .start()
+              }
+
+              // ---------------------------------------------------------------- permissions
+
               private fun allPermissionsGranted(): Boolean = neededPermissions.all {
                   ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
               }
+
+              private fun hasAudioPermission(): Boolean =
+                  ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                      PackageManager.PERMISSION_GRANTED
+
+              // ---------------------------------------------------------------- camera binding
 
               private fun selectorFor(facing: Int): CameraSelector =
                   CameraSelector.Builder().requireLensFacing(facing).build()
@@ -273,23 +986,70 @@ jobs:
               private fun bindCamera() {
                   val provider = cameraProvider ?: return
 
-                  val preview = Preview.Builder().build()
+                  // ViewPort нужен, чтобы фото/видео совпадали с тем, что видно на экране.
+                  val viewPort = binding.viewFinder.viewPort
+                  if (viewPort == null && bindRetries < 10) {
+                      bindRetries++
+                      binding.viewFinder.postDelayed({ bindCamera() }, 50)
+                      return
+                  }
+                  bindRetries = 0
+
+                  val ratio = if (videoMode || ratioIndex == 1 || ratioIndex == RATIO_FULL) {
+                      AspectRatio.RATIO_16_9
+                  } else {
+                      AspectRatio.RATIO_4_3
+                  }
+
+                  val preview = Preview.Builder().setTargetAspectRatio(ratio).build()
                   preview.setSurfaceProvider(binding.viewFinder.surfaceProvider)
 
-                  val capture = ImageCapture.Builder()
-                      .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                      .build()
-                  imageCapture = capture
+                  val group = UseCaseGroup.Builder().addUseCase(preview)
+                  if (viewPort != null) group.setViewPort(viewPort)
+
+                  imageCapture = null
+                  videoCapture = null
+                  if (videoMode) {
+                      val recorder = Recorder.Builder()
+                          .setQualitySelector(
+                              QualitySelector.from(
+                                  Quality.FHD,
+                                  FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD)
+                              )
+                          )
+                          .build()
+                      val vc = VideoCapture.withOutput(recorder)
+                      videoCapture = vc
+                      group.addUseCase(vc)
+                  } else {
+                      val capture = ImageCapture.Builder()
+                          .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                          .setTargetAspectRatio(ratio)
+                          .build()
+                      imageCapture = capture
+                      group.addUseCase(capture)
+                  }
 
                   try {
                       provider.unbindAll()
-                      provider.bindToLifecycle(this, selectorFor(lensFacing), preview, capture)
+                      val cam = provider.bindToLifecycle(this, selectorFor(lensFacing), group.build())
+                      camera = cam
+                      exposureIndex = 0
+                      exposureAccum = 0f
+
+                      zoomLive?.removeObserver(zoomObserver)
+                      zoomLive = cam.cameraInfo.zoomState
+                      zoomLive?.observe(this, zoomObserver)
+
+                      applyFlash()
+                      updateFlashUi()
                   } catch (e: Exception) {
                       Toast.makeText(this, "Не удалось запустить камеру", Toast.LENGTH_LONG).show()
                   }
               }
 
               private fun switchCamera() {
+                  if (recording != null) return
                   val provider = cameraProvider ?: return
                   val newFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
                       CameraSelector.LENS_FACING_FRONT
@@ -300,12 +1060,293 @@ jobs:
                       lensFacing = newFacing
                       bindCamera()
                   } else {
-                      Toast.makeText(this, "Другой камеры нет", Toast.LENGTH_SHORT).show()
+                      toast("Другой камеры нет")
                   }
               }
 
+              // ---------------------------------------------------------------- aspect ratio
+
+              private fun cycleRatio() {
+                  if (recording != null) return
+                  ratioIndex = (ratioIndex + 1) % ratioLabels.size
+                  applyRatio(true)
+              }
+
+              private fun applyRatio(rebind: Boolean) {
+                  val lp = binding.viewFinder.layoutParams as ConstraintLayout.LayoutParams
+                  lp.dimensionRatio = when (ratioIndex) {
+                      0 -> "H,3:4"
+                      1 -> "H,9:16"
+                      2 -> "H,1:1"
+                      else -> null
+                  }
+                  binding.viewFinder.layoutParams = lp
+                  binding.tvRatio.text = ratioLabels[ratioIndex]
+                  if (rebind) {
+                      binding.viewFinder.doOnNextLayout { bindCamera() }
+                  }
+              }
+
+              // ---------------------------------------------------------------- flash
+
+              private fun cycleFlash() {
+                  val cam = camera
+                  if (cam == null || !cam.cameraInfo.hasFlashUnit()) {
+                      toast("У этой камеры нет вспышки")
+                      return
+                  }
+                  flash = if (videoMode) {
+                      if (flash == FLASH_TORCH) FLASH_OFF else FLASH_TORCH
+                  } else {
+                      (flash + 1) % 4
+                  }
+                  applyFlash()
+                  updateFlashUi()
+                  showHud(
+                      when (flash) {
+                          FLASH_AUTO -> "Вспышка: авто"
+                          FLASH_ON -> "Вспышка: вкл"
+                          FLASH_TORCH -> "Фонарик"
+                          else -> "Вспышка выкл"
+                      }
+                  )
+              }
+
+              private fun applyFlash() {
+                  val cam = camera ?: return
+                  if (!cam.cameraInfo.hasFlashUnit()) return
+                  imageCapture?.flashMode = when (flash) {
+                      FLASH_ON -> ImageCapture.FLASH_MODE_ON
+                      FLASH_AUTO -> ImageCapture.FLASH_MODE_AUTO
+                      else -> ImageCapture.FLASH_MODE_OFF
+                  }
+                  cam.cameraControl.enableTorch(flash == FLASH_TORCH)
+              }
+
+              private fun updateFlashUi() {
+                  val has = camera?.cameraInfo?.hasFlashUnit() ?: false
+                  binding.btnFlash.setImageResource(
+                      when (flash) {
+                          FLASH_AUTO -> R.drawable.ic_flash_auto
+                          FLASH_ON -> R.drawable.ic_flash_on
+                          FLASH_TORCH -> R.drawable.ic_flash_torch
+                          else -> R.drawable.ic_flash_off
+                      }
+                  )
+                  binding.btnFlash.setColorFilter(if (flash == FLASH_OFF) Color.WHITE else yellow)
+                  binding.btnFlash.alpha = if (has) 1f else 0.35f
+              }
+
+              // ---------------------------------------------------------------- zoom
+
+              private fun updateZoomChip(ratio: Float) {
+                  val text = if (Math.abs(ratio - Math.round(ratio)) < 0.05f) {
+                      "${Math.round(ratio)}x"
+                  } else {
+                      String.format(Locale.US, "%.1fx", ratio)
+                  }
+                  binding.tvZoom.text = text
+                  binding.tvZoom.setTextColor(if (ratio > 1.05f) yellow else Color.WHITE)
+              }
+
+              private fun cycleZoom() {
+                  val cam = camera ?: return
+                  val s = cam.cameraInfo.zoomState.value ?: return
+                  val presets = mutableListOf<Float>()
+                  if (s.minZoomRatio < 0.95f) presets.add(s.minZoomRatio)
+                  presets.add(1f)
+                  if (s.maxZoomRatio >= 2f) presets.add(2f)
+                  if (s.maxZoomRatio >= 5f) presets.add(5f)
+                  val next = presets.firstOrNull { it > s.zoomRatio + 0.05f } ?: presets.first()
+                  cam.cameraControl.setZoomRatio(next)
+              }
+
+              // ---------------------------------------------------------------- focus / exposure
+
+              private fun focusAt(x: Float, y: Float) {
+                  val cam = camera ?: return
+                  val point = binding.viewFinder.meteringPointFactory.createPoint(x, y)
+                  val action = FocusMeteringAction.Builder(
+                      point,
+                      FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                  ).setAutoCancelDuration(4, TimeUnit.SECONDS).build()
+                  cam.cameraControl.startFocusAndMetering(action)
+                  lastFocusTime = SystemClock.uptimeMillis()
+                  showFocusRing(x, y)
+              }
+
+              private fun showFocusRing(x: Float, y: Float) {
+                  val ring = binding.focusRing
+                  val half = dp(36)
+                  ring.animate().cancel()
+                  ring.translationX = binding.viewFinder.left + x - half
+                  ring.translationY = binding.viewFinder.top + y - half
+                  ring.visibility = View.VISIBLE
+                  ring.alpha = 1f
+                  ring.scaleX = 1.4f
+                  ring.scaleY = 1.4f
+                  ring.animate()
+                      .setStartDelay(0)
+                      .scaleX(1f)
+                      .scaleY(1f)
+                      .setDuration(200)
+                      .withEndAction {
+                          ring.animate()
+                              .setStartDelay(1200)
+                              .alpha(0f)
+                              .setDuration(300)
+                              .withEndAction { ring.visibility = View.GONE }
+                              .start()
+                      }
+                      .start()
+              }
+
+              /** Свайп вверх/вниз сразу после тапа меняет яркость. */
+              private fun adjustExposure(distanceY: Float) {
+                  if (SystemClock.uptimeMillis() - lastFocusTime > 4000) return
+                  val cam = camera ?: return
+                  val st = cam.cameraInfo.exposureState
+                  if (!st.isExposureCompensationSupported) return
+
+                  exposureAccum += distanceY / dp(18)
+                  val steps = exposureAccum.toInt()
+                  if (steps == 0) return
+                  exposureAccum -= steps
+
+                  val range = st.exposureCompensationRange
+                  exposureIndex = (exposureIndex + steps).coerceIn(range.lower, range.upper)
+                  cam.cameraControl.setExposureCompensationIndex(exposureIndex)
+                  lastFocusTime = SystemClock.uptimeMillis()
+
+                  val ev = exposureIndex * st.exposureCompensationStep.toFloat()
+                  showHud(String.format(Locale.US, "Яркость %+.1f", ev))
+              }
+
+              // ---------------------------------------------------------------- timer / grid
+
+              private fun cycleTimer() {
+                  timerSeconds = when (timerSeconds) {
+                      0 -> 3
+                      3 -> 10
+                      else -> 0
+                  }
+                  binding.btnTimer.setColorFilter(if (timerSeconds > 0) yellow else Color.WHITE)
+                  showHud(if (timerSeconds == 0) "Таймер выключен" else "Таймер: $timerSeconds с")
+              }
+
+              private fun toggleGrid() {
+                  gridOn = !gridOn
+                  binding.gridOverlay.visibility = if (gridOn) View.VISIBLE else View.GONE
+                  binding.btnGrid.setColorFilter(if (gridOn) yellow else Color.WHITE)
+              }
+
+              private fun startWithTimer(action: () -> Unit) {
+                  if (countDown != null) {
+                      cancelCountdown()
+                      return
+                  }
+                  if (timerSeconds == 0) {
+                      action()
+                      return
+                  }
+                  binding.tvCountdown.visibility = View.VISIBLE
+                  countDown = object : CountDownTimer(timerSeconds * 1000L, 1000L) {
+                      override fun onTick(msLeft: Long) {
+                          binding.tvCountdown.text = ((msLeft + 999) / 1000).toString()
+                      }
+
+                      override fun onFinish() {
+                          countDown = null
+                          binding.tvCountdown.visibility = View.GONE
+                          action()
+                      }
+                  }.start()
+              }
+
+              private fun cancelCountdown() {
+                  countDown?.cancel()
+                  countDown = null
+                  binding.tvCountdown.visibility = View.GONE
+              }
+
+              // ---------------------------------------------------------------- photo / video mode
+
+              private fun setMode(video: Boolean) {
+                  if (recording != null || video == videoMode) return
+                  videoMode = video
+                  if (video) {
+                      if (flash == FLASH_AUTO || flash == FLASH_ON) flash = FLASH_OFF
+                      if (!hasAudioPermission() && !audioAsked) {
+                          audioAsked = true
+                          audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                      }
+                  }
+                  updateModeUi()
+                  updateFlashUi()
+                  bindCamera()
+              }
+
+              private fun updateModeUi() {
+                  binding.tvModePhoto.setTextColor(if (!videoMode) yellow else dimWhite)
+                  binding.tvModeVideo.setTextColor(if (videoMode) yellow else dimWhite)
+                  binding.btnCapture.setBackgroundResource(
+                      if (videoMode) R.drawable.shutter_video_bg else R.drawable.shutter_button_bg
+                  )
+                  binding.btnCapture.contentDescription =
+                      if (videoMode) "Запись видео" else "Снять фото"
+              }
+
+              private fun setRecordingUi(on: Boolean) {
+                  binding.btnCapture.setBackgroundResource(
+                      when {
+                          on -> R.drawable.shutter_recording_bg
+                          videoMode -> R.drawable.shutter_video_bg
+                          else -> R.drawable.shutter_button_bg
+                      }
+                  )
+                  binding.tvRecTime.visibility = if (on) View.VISIBLE else View.GONE
+                  if (on) binding.tvRecTime.text = "● 00:00"
+                  val a = if (on) 0.3f else 1f
+                  listOf<View>(
+                      binding.btnSwitchCamera,
+                      binding.ivThumb,
+                      binding.tvModePhoto,
+                      binding.tvModeVideo,
+                      binding.tvRatio
+                  ).forEach { it.alpha = a }
+              }
+
+              private fun onShutter() {
+                  if (videoMode) {
+                      val rec = recording
+                      if (rec != null) {
+                          rec.stop()
+                      } else {
+                          startWithTimer { startRecording() }
+                      }
+                  } else {
+                      startWithTimer { takePhoto() }
+                  }
+              }
+
+              private fun animateShutter() {
+                  binding.btnCapture.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                  val v = binding.shutterFlash
+                  v.animate().cancel()
+                  v.visibility = View.VISIBLE
+                  v.alpha = 0.7f
+                  v.animate()
+                      .alpha(0f)
+                      .setDuration(180)
+                      .withEndAction { v.visibility = View.GONE }
+                      .start()
+              }
+
+              // ---------------------------------------------------------------- photo
+
               private fun takePhoto() {
                   val capture = imageCapture ?: return
+                  animateShutter()
 
                   val name = "IMG_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
                   val values = ContentValues().apply {
@@ -327,7 +1368,7 @@ jobs:
                       ContextCompat.getMainExecutor(this),
                       object : ImageCapture.OnImageSavedCallback {
                           override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                              Toast.makeText(this@MainActivity, "Фото сохранено", Toast.LENGTH_SHORT).show()
+                              output.savedUri?.let { showThumb(it, false) }
                           }
 
                           override fun onError(exc: ImageCaptureException) {
@@ -335,6 +1376,171 @@ jobs:
                           }
                       }
                   )
+              }
+
+              // ---------------------------------------------------------------- video
+
+              @SuppressLint("MissingPermission")
+              private fun startRecording() {
+                  val vc = videoCapture ?: return
+
+                  val name = "VID_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                  val values = ContentValues().apply {
+                      put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                      put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                      if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
+                          put(MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/Camera")
+                      }
+                  }
+                  val options = MediaStoreOutputOptions.Builder(
+                      contentResolver,
+                      MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                  ).setContentValues(values).build()
+
+                  var pending = vc.output.prepareRecording(this, options)
+                  if (hasAudioPermission()) {
+                      pending = pending.withAudioEnabled()
+                  }
+
+                  recording = pending.start(ContextCompat.getMainExecutor(this)) { event ->
+                      when (event) {
+                          is VideoRecordEvent.Start -> setRecordingUi(true)
+                          is VideoRecordEvent.Status -> {
+                              val sec = event.recordingStats.recordedDurationNanos / 1_000_000_000L
+                              binding.tvRecTime.text =
+                                  String.format(Locale.US, "● %02d:%02d", sec / 60, sec % 60)
+                          }
+                          is VideoRecordEvent.Finalize -> {
+                              recording = null
+                              setRecordingUi(false)
+                              if (!event.hasError()) {
+                                  showThumb(event.outputResults.outputUri, true)
+                                  toast("Видео сохранено")
+                              } else {
+                                  toast("Ошибка записи видео")
+                              }
+                          }
+                          else -> {}
+                      }
+                  }
+              }
+
+              // ---------------------------------------------------------------- thumbnail / gallery
+
+              private fun showThumb(uri: Uri, isVideo: Boolean) {
+                  lastUri = uri
+                  lastIsVideo = isVideo
+                  Thread {
+                      val bmp = try {
+                          if (isVideo) videoThumb(uri) else photoThumb(uri)
+                      } catch (e: Exception) {
+                          null
+                      }
+                      runOnUiThread {
+                          if (bmp != null && !isDestroyed && lastUri == uri) {
+                              binding.ivThumb.setImageBitmap(bmp)
+                          }
+                      }
+                  }.start()
+              }
+
+              private fun photoThumb(uri: Uri): Bitmap? {
+                  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                  contentResolver.openInputStream(uri)?.use {
+                      BitmapFactory.decodeStream(it, null, bounds)
+                  }
+                  var sample = 1
+                  val minSide = minOf(bounds.outWidth, bounds.outHeight)
+                  while (minSide / (sample * 2) >= 300) sample *= 2
+
+                  val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+                  val bmp = contentResolver.openInputStream(uri)?.use {
+                      BitmapFactory.decodeStream(it, null, opts)
+                  } ?: return null
+
+                  val rotation = contentResolver.openInputStream(uri)?.use {
+                      when (
+                          ExifInterface(it).getAttributeInt(
+                              ExifInterface.TAG_ORIENTATION,
+                              ExifInterface.ORIENTATION_NORMAL
+                          )
+                      ) {
+                          ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                          ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                          ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                          else -> 0
+                      }
+                  } ?: 0
+
+                  if (rotation == 0) return bmp
+                  val m = Matrix().apply { postRotate(rotation.toFloat()) }
+                  return Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+              }
+
+              private fun videoThumb(uri: Uri): Bitmap? {
+                  val r = MediaMetadataRetriever()
+                  return try {
+                      r.setDataSource(this, uri)
+                      r.getFrameAtTime(0)
+                  } finally {
+                      r.release()
+                  }
+              }
+
+              /** При запуске показываем последний снимок, сделанный этим приложением. */
+              private fun loadLastMedia() {
+                  Thread {
+                      var bestUri: Uri? = null
+                      var bestTime = -1L
+                      var bestVideo = false
+                      val sources = listOf(
+                          MediaStore.Images.Media.EXTERNAL_CONTENT_URI to false,
+                          MediaStore.Video.Media.EXTERNAL_CONTENT_URI to true
+                      )
+                      for ((base, isVideo) in sources) {
+                          try {
+                              contentResolver.query(
+                                  base,
+                                  arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATE_ADDED),
+                                  null,
+                                  null,
+                                  MediaStore.MediaColumns.DATE_ADDED + " DESC"
+                              )?.use { c ->
+                                  if (c.moveToFirst()) {
+                                      val t = c.getLong(1)
+                                      if (t > bestTime) {
+                                          bestTime = t
+                                          bestUri = ContentUris.withAppendedId(base, c.getLong(0))
+                                          bestVideo = isVideo
+                                      }
+                                  }
+                              }
+                          } catch (e: Exception) {
+                              // нет доступа или пусто, просто пропускаем
+                          }
+                      }
+                      val uri = bestUri ?: return@Thread
+                      val video = bestVideo
+                      runOnUiThread { if (lastUri == null) showThumb(uri, video) }
+                  }.start()
+              }
+
+              private fun openLastMedia() {
+                  if (recording != null) return
+                  val uri = lastUri
+                  if (uri == null) {
+                      toast("Пока нет снимков")
+                      return
+                  }
+                  val intent = Intent(Intent.ACTION_VIEW).apply {
+                      setDataAndType(uri, if (lastIsVideo) "video/*" else "image/*")
+                      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                  }
+                  try {
+                      startActivity(intent)
+                  } catch (e: Exception) {
+                      toast("Не нашлось приложения для просмотра")
+                  }
               }
           }
           EOF_FILE
